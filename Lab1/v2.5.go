@@ -1,4 +1,7 @@
 package main
+//
+const tot = 1000
+const threadNUM = 15
 
 import (
 	"bufio"
@@ -150,7 +153,7 @@ func (x *DLX) decode(code int, a, b, c *int) {
 }
 
 // Solve 解决数独
-func (x *DLX) Solve(inp string, c1 chan info, p int, cond *sync.Cond) {
+func (x *DLX) Solve(inp string, c2 chan info, p int, cond *sync.Cond) {
 	x.init(9, inp)
 	if !x.dfs(0) {
 		return
@@ -166,7 +169,7 @@ func (x *DLX) Solve(inp string, c1 chan info, p int, cond *sync.Cond) {
 			res = append(res, byte(x.sudoku[i][j]+'1'))
 		}
 	}
-	c1 <- info{string(res), p}
+	c2 <- info{string(res), p}
 }
 
 type info struct {
@@ -174,8 +177,6 @@ type info struct {
 	p   int
 }
 
-const tot = 1000
-const threadNUM = 15
 
 func thwk(c1, c2 chan info, cond *sync.Cond) {
 	var llx DLX
