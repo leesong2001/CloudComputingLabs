@@ -153,7 +153,7 @@ func (x *DLX) decode(code int, a, b, c *int) {
 }
 
 // Solve 解决数独
-func (x *DLX) Solve(inp string, c2 chan info, p int, cond *sync.Cond) {
+func (x *DLX) Solve(inp string, c2 chan info, p int) {
 	x.init(9, inp)
 	if !x.dfs(0) {
 		return
@@ -178,24 +178,22 @@ type info struct {
 }
 
 
-func thwk(c1, c2 chan info, cond *sync.Cond) {
+func thwk(c1, c2 chan info) {
 	var llx DLX
 	for {
 		x := <-c1
-		llx.Solve(x.str, c2, x.p, cond)
+		llx.Solve(x.str, c2, x.p)
 	}
 }
 func mainwork() {
 	now := time.Now()
 	re := bufio.NewReader(os.Stdin)
-	mux := sync.Mutex{}
-	cond := sync.NewCond(&mux)
 
 	var ans [tot]string
 	c1 := make(chan info, tot)
 	c2 := make(chan info, tot)
 	for i := 0; i < threadNUM; i++ {
-		go thwk(c1, c2, cond)
+		go thwk(c1, c2)
 	}
 	var x string
 	for i := 0; i < tot; i++ {
