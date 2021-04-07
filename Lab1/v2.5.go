@@ -1,16 +1,14 @@
 package main
-//
-const tot = 1000
-const threadNUM = 15
 
 import (
 	"bufio"
 	"fmt"
 	"os"
-	"sync"
 	"time"
 )
 
+const tot = 100000
+const threadNUM = 15
 const maxn = 81*4*81 + 10
 const maxr = 9*9*9 + 10
 const maxc = 81*4 + 10
@@ -176,7 +174,6 @@ type info struct {
 	str string
 	p   int
 }
-
 
 func thwk(c1, c2 chan info) {
 	var llx DLX
