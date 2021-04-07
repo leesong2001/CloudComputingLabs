@@ -212,6 +212,7 @@ func mainwork(fl, fot *os.File) {
 		fmt.Fprintln(ot, ans[j])
 	}
 	fmt.Fprintln(ot, time.Since(now))
+	fmt.Printf("\n**debug info**: excute file %s finished after %s\n", fl.Name(), time.Since(now))
 	ot.Flush()
 	fl.Close()
 	fot.Close()
