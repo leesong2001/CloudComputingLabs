@@ -8,14 +8,9 @@ import (
 	"time"
 )
 
-const tot = 1000
-const threadNUM = 20
-
 const maxn = 81*4*81 + 10
 const maxr = 9*9*9 + 10
 const maxc = 81*4 + 10
-
-var ans [tot]string
 
 //DLX 舞蹈链
 type DLX struct {
@@ -179,12 +174,13 @@ func (x *DLX) Solve(inp string, c1 chan string, c2 chan int, p int, cond *sync.C
 	cond.L.Unlock()
 }
 
-var lx [threadNUM]DLX
+const tot = 1000
+const threadNUM = 20
 
-func thwk(c1 chan string, c2 chan int, c3 chan string, c4 chan int, cond *sync.Cond, p int) {
+func thwk(c1 chan string, c2 chan int, c3 chan string, c4 chan int, cond *sync.Cond) {
+	var llx DLX
 	for {
-		x := <-c3
-		lx[p].Solve(x, c1, c2, <-c4, cond)
+		llx.Solve(<-c3, c1, c2, <-c4, cond)
 	}
 }
 func mainwork() {
@@ -193,12 +189,13 @@ func mainwork() {
 	mux := sync.Mutex{}
 	cond := sync.NewCond(&mux)
 
+	var ans [tot]string
 	c1 := make(chan string, tot)
 	c2 := make(chan int, tot)
 	c3 := make(chan string, tot)
 	c4 := make(chan int, tot)
 	for i := 0; i < threadNUM; i++ {
-		go thwk(c1, c2, c3, c4, cond, i)
+		go thwk(c1, c2, c3, c4, cond)
 	}
 	var x string
 	for i := 0; i < tot; i++ {
