@@ -8,11 +8,14 @@ import (
 	"time"
 )
 
-var ans [1000]string
+const tot = 1000
+const threadNUM = 20
 
 const maxn = 81*4*81 + 10
 const maxr = 9*9*9 + 10
 const maxc = 81*4 + 10
+
+var ans [tot]string
 
 //DLX 舞蹈链
 type DLX struct {
@@ -173,12 +176,8 @@ func (x *DLX) Solve(inp string, c1 chan string, c2 chan int, p int, cond *sync.C
 	cond.L.Lock()
 	c1 <- string(res)
 	c2 <- p
-	ans[p] = string(res)
 	cond.L.Unlock()
 }
-
-const tot = 1000
-const threadNUM = 20
 
 var lx [threadNUM]DLX
 
