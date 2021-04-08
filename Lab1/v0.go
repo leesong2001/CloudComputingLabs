@@ -182,6 +182,7 @@ func mainwork(fl, fot *os.File) {
 		fmt.Fprintln(ot, lx.Solve(x))
 	}
 	fmt.Println(time.Since(now))
+	ot.Flush()
 	fl.Close()
 	fot.Close()
 }
