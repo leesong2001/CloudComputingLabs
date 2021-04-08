@@ -52,11 +52,11 @@
 
 &emsp;&emsp;图2-1展示了不同线程数对性能造成的影响，其2条折线：**Consumed time**和**Speedup**分别表示随sodoku_solve线程数量的变化所需的时间开销和相应的加速比。从图2-1中可以看出，当多线程程序创建的总线程数不大于CPU物理核心数（测试环境为4个）时，随着总线程数的增加，时间开销不断减小、加速比不断增加。单线程程序只有一个主线程，在读取puzzle文件时线程阻塞，造成CPU闲置，总时间开销$T_{Sum}=T_{IO}+T_{OneSolve}$，其过程如图2-2所示；多线程程序一方面充分的利用多个CPU并行求解问题，近似的有$T_{MultiSolve}=\large\frac {T_{OneSolve}}{n}$，另一方面主线程读取puzzle文件被阻塞时，其所创建的sodoku_solve子线程可以使用主线程让出的CPU资源进行问题求解，如图2-2所示，该过程以流水线模式进行IO和CPU计算，近似的有$T_{IO}=0$。图2-2中的时间消耗曲线验证了这一分析，当线程数目$thread num\in[1,4]$时，随着线程数目的增加$T_{sum}$不断下降，且符合$T_{MultiSolve}=\large\frac {T_{OneSolve}}{n}$。而当线程数目继续增加超过CPU物理核心数时性能急剧下降，加速比几乎稳定在了2.0附近。这是因为sodoku_solve线程数超过了CPU物理核心数，至少有两个线程在同一个CPU上运行，当一个线程的时间片消耗后就会进行CPU调度，而频繁的上下文切换带来较大额外时间开销，引起性能下降。
 
-<div align="center"><img src="./src/OneThread-MultiThread-TimeAndSpeedup.png" alt="图2-1" title="图2-1" style="zoom:75%;" /></div>
+<div align="center"><img src="./src/OneThread-MultiThread-TimeAndSpeedup.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
 
 **<p align="center">图2-1 多线程程序运行时间、加速比随线程数变化曲线</p>**
 
-<div align="center"><img src="./src/OneThread-MultiThread-FlowLine.png" alt="图2-1" title="图2-1" style="zoom:100%;" /></div>
+<div align="center"><img src="./src/OneThread-MultiThread-FlowLine.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
 
 **<p align="center">图2-2 单线程与多线程IO和CPU时间片</p>**
 
@@ -69,15 +69,15 @@
 
 
 
-<div align="center"><img src="./src/MultiThread-ThreadPool-FlowLine.png" alt="图2-1" title="图2-1" style="zoom:75%;" /></div>
+<div align="center"><img src="./src/MultiThread-ThreadPool-FlowLine.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
 
 **<p align="center">图2-3 单线程与多线程IO和CPU时间片</p>**
 
-<div align="center"><img src="./src/difficulty-distribution.png" alt="图2-1" title="图2-1" style="zoom:75%;" /></div>
+<div align="center"><img src="./src/difficulty-distribution.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
 
 **<p align="center">图2-4 生成的puzzle数据集难度分布</p>**
 
-<div align="center"><img src="./src/MultiThread-ThreadPool-ConsumedTime.png" alt="图2-1" title="图2-1" style="zoom:75%;" /></div>
+<div align="center"><img src="./src/MultiThread-ThreadPool-ConsumedTime.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
 
 **<p align="center">图2-5 普通多线程与线程池时间消耗对比</p>**
 
