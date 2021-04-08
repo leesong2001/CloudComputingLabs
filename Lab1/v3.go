@@ -171,11 +171,16 @@ func (x *DLX) Solve(inp string, c2 chan info, p int) {
 	c2 <- info{string(res), p}
 }
 
+/* 管道数据
+ * p:puzzle编号
+ * str:问题或者结果
+ */
 type info struct {
 	str string
 	p   int
 }
 
+//每一个协程运行的函数，调用Solve方法求解puzzle
 func thwk(c1, c2 chan info) {
 	var llx DLX
 	for {
@@ -183,35 +188,41 @@ func thwk(c1, c2 chan info) {
 		llx.Solve(x.str, c2, x.p)
 	}
 }
+
+/* 处理一个文件的puzzle 线程函数
+ * fl:读入文件
+ * fot:输出文件
+ */
 func mainwork(fl, fot *os.File) {
 	now := time.Now()
-	re := bufio.NewReader(fl)
-	ot := bufio.NewWriter(fot)
-	c1 := make(chan info, tot)
-	c2 := make(chan info, tot)
-	var ans [tot]string
+	re := bufio.NewReader(fl)  //创建读入buffer
+	ot := bufio.NewWriter(fot) //创建输出buffer
+	c1 := make(chan info, tot) //输入数据进入管道，生产消费者
+	c2 := make(chan info, tot) //求解的答案管道
+	var ans []string           //动态大小的ans数组，应对不同大小的输入
 	for i := 0; i < threadNUM; i++ {
-		go thwk(c1, c2)
+		go thwk(c1, c2) //预先开启threadNUM个协程
 	}
 	var x string
-	cnt := 0
-	for {
+	cnt := 0 //单文件puzzle数
+	for ; ; cnt++ {
 		_, err := fmt.Fscan(re, &x)
-		if err != nil && err.Error() == io.EOF.Error() {
+		if err != nil && err.Error() == io.EOF.Error() { //读到文件尾
 			break
 		}
 		c1 <- info{x, cnt}
-		cnt++
+		ans = append(ans, "")
 	}
 	for i := 0; i < cnt; i++ {
 		x := <-c2
-		ans[x.p] = x.str
+		ans[x.p] = x.str //保存答案
 	}
 	//fmt.Println(time.Since(now))
 	for j := 0; j < cnt; j++ {
 		fmt.Fprintln(ot, ans[j])
 	}
-	fmt.Fprintln(ot, time.Since(now))
+	fmt.Fprintln(ot, time.Since(now)) //计算运行时间
+	//debuginfo
 	fmt.Printf("\n**debug info**: excute file %s finished after %s\n", fl.Name(), time.Since(now))
 	ot.Flush()
 	fl.Close()
@@ -221,16 +232,16 @@ func main() {
 	for {
 		fmt.Printf("input a filename or exit: ")
 		var flname string
-		fmt.Scan(&flname)
-		if flname == "exit" {
+		fmt.Scan(&flname)     //输入文件
+		if flname == "exit" { //如果输入exit就退出
 			break
 		}
 		f, err := os.Open(flname)
-		if err != nil {
+		if err != nil { //打开文件失败
 			fmt.Println("file not exist")
 		} else {
-			fout, _ := os.Create(flname + ".out")
-			go mainwork(f, fout)
+			fout, _ := os.Create(flname + ".out") //输出文件+.out
+			go mainwork(f, fout)                  //开一个协程处理输入文件
 		}
 	}
 	fmt.Println("program has terminated")
