@@ -24,9 +24,9 @@
 
 &emsp;&emsp;实验中共有2个不同的实验环境：**ENV1**和**ENV2**。
 
-&emsp;&emsp;**ENV1:** linux内核版本为；GB内存；CPU型号为，共有个物理CPU；每个物理CPU有个物理核心，共有个物理核心；不使用超线程技术。
+&emsp;&emsp;**ENV1:** linux内核版本为；2GB内存；CPU型号为Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz，共有2个物理CPU；每个物理CPU有1个物理核心，共有2个物理核心；不使用超线程技术。
 
-&emsp;&emsp;**ENV2:** linux内核版本为；GB内存；CPU型号为，共个物理CPU；每个物理CPU有个物理核心，共有个物理核心；不使用超线程技术。
+&emsp;&emsp;**ENV2:** linux内核版本为；2GB内存；CPU型号为Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz，共有4个物理CPU；每个物理CPU有1个物理核心，共有4个物理核心；不使用超线程技术。
 
 如无特别说明，默认使用ENV。
 
@@ -56,7 +56,7 @@
 
 **<p align="center">图2-1 多线程程序运行时间、加速比随线程数变化曲线</p>**
 
-<div align="center"><img src="./src/OneThread-MultiThread-FlowLine.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
+<div align="center"><img src="./src/OneThread-MultiThread-FlowLine.png" alt="图2-2" title="图2-2" style="zoom:65%;" /></div>
 
 **<p align="center">图2-2 单线程与多线程IO和CPU时间片</p>**
 
@@ -69,22 +69,22 @@
 
 
 
-<div align="center"><img src="./src/MultiThread-ThreadPool-FlowLine.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
+<div align="center"><img src="./src/MultiThread-ThreadPool-FlowLine.png" alt="图2-3" title="图2-3" style="zoom:65%;" /></div>
 
 **<p align="center">图2-3 单线程与多线程IO和CPU时间片</p>**
 
-<div align="center"><img src="./src/difficulty-distribution.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
+<div align="center"><img src="./src/difficulty-distribution.png" alt="图2-4" title="图2-4" style="zoom:65%;" /></div>
 
 **<p align="center">图2-4 生成的puzzle数据集难度分布</p>**
 
-<div align="center"><img src="./src/MultiThread-ThreadPool-ConsumedTime.png" alt="图2-1" title="图2-1" style="zoom:65%;" /></div>
+<div align="center"><img src="./src/MultiThread-ThreadPool-ConsumedTime.png" alt="图2-5" title="图2-5" style="zoom:65%;" /></div>
 
 **<p align="center">图2-5 普通多线程与线程池时间消耗对比</p>**
 
 ### 2.3 不同硬件环境性能比较
-CPU主频即CPU的时钟频率，计算机的操作在时钟信号的控制下分步执行，每个时钟信号周期完成一步操作，时钟频率的高低在很大程度上反映了CPU速度的快慢。主频和实际的运算速度存在一定的关系，但并不是一个简单的线性关系。主频表示在CPU内数字脉冲信号震荡的速度，CPU的运算速度还要看CPU的流水线、总线等各方面的性能指标。也就是说，主频仅仅是CPU性能表现的一个方面，而不代表CPU的整体性能。
-顺带一提超频，—般来说。每个CPU都有其额定的主频、外频和倍频。我们通过改变其外频与倍频以提高CPU主频的方法就叫做超频，其实简单说就是改变CPU的工作频率。超频时应掌握一基本原则：优先提高外频，其次提高倍频，随之带来的问题就是CPU的散热问题。
-物理cpu数：主板上实际插入的cpu数量，可以数不重复的 physical id 有几个。
-cpu核数：单块CPU上面能处理数据的芯片组的数量，如双核、四核等 （cpu cores 核心）
-逻辑cpu数：简单来说，它可使处理器中的1颗内核，如2颗内核那样在操作系统中发挥作用。
-对单个CPU物理核心，其主频越高，运行速度越快。
+&emsp;硬件环境如CPU主频、物理核心数等的不同，会导致同一个程序在不同的硬件环境中有不同的表现。对单个CPU物理核心，CPU主频即CPU的时钟频率，计算机的操作在时钟信号的控制下分步执行，每个时钟信号周期完成一步操作，时钟频率的高低在很大程度上反映了CPU速度的快慢。对单个CPU物理核心，其主频越高，运行速度越快。CPU核心数则决定了可以同时运行几个线程。
+&emsp;实验将使用线程池优化后的Code3分别在ENV1和ENV2中对大小为811KB、具有10k个数独题的文件进行求解，其中sudoku_solve线程数从1开始逐步增加，测量时间开销。
+&emsp;图2-6为Code3在不同的硬件环境ENV1和ENV2中分别调整不同的sudoku_solve线程数的测试结果。当总线程数为1~2时，ENV1和ENV2环境下的代码性能相差无几，因为二者的CPU主频均为2.5GHZ，而对于单个CPU物理核心而言，其主频确定了运行速度的快慢。当总线程数为2~4时，ENV1环境下创建的线程数超过其物理核心数，将有多个工作线程在同一个CPU上调度，带来了额外的上下文切换开销，此时ENV2环境下增加线程可以继续提高并行性能。当总线程数大于4时，ENV2环境下代码也因为创建的线程数超过其物理核心数，付出了许多的上下文切换开销，性能下降。
+<div align="center"><img src="./src/pic2_6.png" alt="图2-6" title="图2-6" style="zoom:65%;" /></div>
+
+**<p align="center">图2-6 不同硬件环境下性能比较</p>**
