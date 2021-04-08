@@ -149,10 +149,10 @@ func (x *DLX) decode(code int, a, b, c *int) {
 }
 
 // Solve 解决数独
-func (x *DLX) Solve(inp string) {
+func (x *DLX) Solve(inp string) string {
 	x.init(9, inp)
 	if !x.dfs(0) {
-		return
+		return ""
 	}
 	var res []byte
 	for i := 0; i < x.ansd; i++ {
@@ -165,19 +165,42 @@ func (x *DLX) Solve(inp string) {
 			res = append(res, byte(x.sudoku[i][j]+'1'))
 		}
 	}
-	fmt.Println(string(res))
+	return string(res)
 }
 
-const tot = 1000
-
-func main() {
+func mainwork(fl, fot *os.File) {
 	now := time.Now()
-	re := bufio.NewReader(os.Stdin)
+	re := bufio.NewReader(fl)
+	ot := bufio.NewWriter(fot)
 	var lx DLX
 	var x string
-	for i := 0; i < tot; i++ {
-		fmt.Fscan(re, &x)
-		lx.Solve(x)
+	for {
+		_, err := fmt.Fscan(re, &x)
+		if err != nil && err.Error() == "EOF" {
+			break
+		}
+		fmt.Fprintln(ot, lx.Solve(x))
 	}
 	fmt.Println(time.Since(now))
+	ot.Flush()
+	fl.Close()
+	fot.Close()
+}
+func main() {
+	for {
+		fmt.Printf("input a filename or exit: ")
+		var flname string
+		fmt.Scan(&flname)
+		if flname == "exit" {
+			break
+		}
+		f, err := os.Open(flname)
+		if err != nil {
+			fmt.Println("file not exist")
+		} else {
+			fout, _ := os.Create(flname + ".out")
+			mainwork(f, fout)
+		}
+	}
+	fmt.Println("program has terminated")
 }
