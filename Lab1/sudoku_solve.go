@@ -234,7 +234,6 @@ func main() {
 			break
 		} else {
 			mainwork(f) //处理输入文件
-			fmt.Println("")
 		}
 	}
 }
