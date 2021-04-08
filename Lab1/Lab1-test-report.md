@@ -24,9 +24,9 @@
 
 &emsp;&emsp;实验中共有2个不同的实验环境：**ENV1**和**ENV2**。
 
-&emsp;&emsp;**ENV1:** linux内核版本为；2GB内存；CPU型号为Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz，共有2个物理CPU；每个物理CPU有1个物理核心，共有2个物理核心；不使用超线程技术。
+&emsp;&emsp;**ENV1:** linux内核版本为4.15.0-129-generic；2GB内存；CPU型号为Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz，共有2个物理CPU；每个物理CPU有1个物理核心，共有2个物理核心；不使用超线程技术。
 
-&emsp;&emsp;**ENV2:** linux内核版本为；2GB内存；CPU型号为Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz，共有4个物理CPU；每个物理CPU有1个物理核心，共有4个物理核心；不使用超线程技术。
+&emsp;&emsp;**ENV2:** linux内核版本为4.15.0-129-generic；2GB内存；CPU型号为Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz，共有4个物理CPU；每个物理CPU有1个物理核心，共有4个物理核心；不使用超线程技术。
 
 如无特别说明，默认使用ENV。
 
