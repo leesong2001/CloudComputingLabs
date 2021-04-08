@@ -1,5 +1,5 @@
 BINARY_NAME=sudoku_solve
 all:
-	go build sudoku_solve.go -o $(BINARY_NAME) -v
+	go build -o $(BINARY_NAME) sudoku_solve.go
 clean:
 	-rm sudoku_solve
