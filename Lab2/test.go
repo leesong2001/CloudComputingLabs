@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
-const TCPTimeLimit = 30 //seconds
-const ThreadNum = 5     //协程数
+const TCPTimeLimit = 30           //seconds
+const ThreadNum = 5               //协程数
+const WaitQueue = ThreadNum * 100 //等待队列长度
 // 每一个协程的处理，现在只是简单打印conn
 func SingleThreadWork(c1 chan net.Conn) {
 	for {
@@ -36,7 +37,7 @@ func main() {
 	fmt.Println("监听套接字，创建成功, 服务器开始监听。。。")
 	defer listen.Close() // 服务器结束前关闭 listener
 
-	connchan := make(chan net.Conn, ThreadNum*100)
+	connchan := make(chan net.Conn, WaitQueue)
 	for i := 0; i < ThreadNum; i++ {
 		go SingleThreadWork(connchan)
 	}
@@ -48,9 +49,6 @@ func main() {
 		if err != nil {
 			panic("Accept() err=  " + err.Error())
 		}
-		// 这里准备起一个协程，为客户端服务
-		//go accept_request_thread(conn)
-		//net.Dial("tcp","http://127.0.0.1:8888/api/camera/get_ptz?camera_id=1324566666789876543")
 		connchan <- conn
 	}
 }
