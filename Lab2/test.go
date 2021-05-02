@@ -11,7 +11,7 @@ const TCPTimeLimit = 30 //seconds
 func SingleThreadWork(c1 chan net.Conn) {
 	for {
 		conn := <-c1
-		conn.SetDeadline(time.Now().Add(time.Duration(30) * time.Second))
+		conn.SetDeadline(time.Now().Add(time.Duration(TCPTimeLimit) * time.Second))
 		for {
 			fmt.Println(conn.RemoteAddr().String())
 			buf := make([]byte, 1024)
