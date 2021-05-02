@@ -7,6 +7,7 @@ import (
 )
 
 const TCPTimeLimit = 30 //seconds
+const ThreadNum = 5     //协程数
 // 每一个协程的处理，现在只是简单打印conn
 func SingleThreadWork(c1 chan net.Conn) {
 	for {
@@ -25,8 +26,6 @@ func SingleThreadWork(c1 chan net.Conn) {
 		conn.Close()
 	}
 }
-
-const ThreadNum = 5
 
 func main() {
 	listen, err := net.Listen("tcp", ":8888") // 创建用于监听的 socket
