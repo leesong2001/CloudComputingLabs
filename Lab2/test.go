@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const TCPTimeLimit = 30           //seconds
+const TCPTimeLimit = 30           //TCP等待超时(seconds)
 const ThreadNum = 5               //协程数
 const WaitQueue = ThreadNum * 100 //等待队列长度
 // 每一个协程的处理，现在只是简单打印conn
