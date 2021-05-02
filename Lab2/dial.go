@@ -5,8 +5,6 @@ import (
 	"net"
 )
 
-const ThreadNum = 5
-
 func main() {
 	conn, err := net.Dial("tcp", "127.0.0.1:8888")
 	for {
@@ -16,7 +14,7 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		conn.Write([]byte("ins"))
+		conn.Write([]byte(ins))
 	}
 }
 
