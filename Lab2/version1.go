@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 const debug_mode = true
@@ -233,6 +234,8 @@ func handle_request(conn net.Conn) {
 func SingleThreadWork(c1 chan net.Conn) {
 	for {
 		conn := <-c1
+		//TCP连接等待超时，断开连接
+		conn.SetDeadline(time.Now().Add(time.Duration(TCPTimeLimit) * time.Second))
 		handle_request(conn)
 		conn.Close()
 	}
