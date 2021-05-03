@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 )
-var debug_mode=true
-var rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
+var debug_mode=false
+var rootPath="../Lab2"
 var resp404="HTTP/1.0 404 Not Found\r\n"
 var resp501="HTTP/1.0 501 Not Implemented\r\n"
 var resp200="HTTP/1.0 200 OK\r\n"
