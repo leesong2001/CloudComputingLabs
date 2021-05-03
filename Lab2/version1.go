@@ -2,35 +2,32 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
+	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 )
+var debug_mode=true
+var rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
+var resp404="HTTP/1.0 404 Not Found\r\n"
+var resp501="HTTP/1.0 501 Not Implemented\r\n"
+var resp200="HTTP/1.0 200 OK\r\n"
 
-const debug_mode = true
-const rootPath = "D:/CloudComputing/CloudComputingLabs/Lab2"
-const resp404 = "HTTP/1.0 404 Not Found\r\n"
-const resp501 = "HTTP/1.0 501 Not Implemented\r\n"
-const resp200 = "HTTP/1.0 200 OK\r\n"
-
-const TCPTimeLimit = 30           //TCP等待超时(seconds)
-const ThreadNum = 5               //协程数
-const WaitQueue = ThreadNum * 100 //等待队列长度
-
-func readFile(filePath string) []byte {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
+var contentHtml="Content-type: text/html\r\n"
+var contentLen="Content-length: "
+func readFile(filePath string)([]byte,int){
+	f, err := os.OpenFile(filePath, os.O_RDONLY,0600)
 	defer f.Close()
-	if err != nil {
+	if err !=nil {
 		fmt.Println(err.Error())
 	} else {
-		contentByte, _ := ioutil.ReadAll(f)
-		return contentByte
+		contentByte,_:=ioutil.ReadAll(f)
+		return contentByte,len(contentByte)
 	}
-	return nil
+	return nil,0
 }
-func response(statusCode int, conn net.Conn, req string, filePath string, attachment string) {
+func response(statusCode int,conn net.Conn,req string,filePath string,attachment string){
 	/* statusCode状态码
 	 * filePath 文件路径
 	 * conn 客户端连接
@@ -38,22 +35,31 @@ func response(statusCode int, conn net.Conn, req string, filePath string, attach
 	 * attachment post请求的name-id pair
 	 */
 
-	if statusCode == 501 {
+	if(statusCode==501){
 		conn.Write([]byte(resp501))
-	} else if statusCode == 404 {
+		conn.Write([]byte(contentLen+strconv.Itoa(0)+"\r\n") )//首部字段
+		conn.Write([]byte("\r\n"))//空行
+	}else if(statusCode==404){
 		conn.Write([]byte(resp404))
-	} else if statusCode == 200 {
-		if req == "GET" {
+		conn.Write([]byte(contentLen+strconv.Itoa(0)+"\r\n") )//首部字段
+		conn.Write([]byte("\r\n"))//空行
+	}else if(statusCode==200){
+		if(req=="GET"){
 			//conn.Write(200 OK 以及 html文件全部内容)
+			data,datasize:=readFile(filePath)
 			conn.Write([]byte(resp200))
-			conn.Write([]byte("\r\n"))
-			conn.Write(readFile(filePath))
+			conn.Write([]byte(contentHtml))//首部字段
+			conn.Write([]byte(contentLen+strconv.Itoa(datasize)+"\r\n") )//首部字段
 
-		} else {
+			conn.Write([]byte("\r\n"))//空行
+			conn.Write(data)
+
+		}else{
 			//返回200 OK并回显 "Name"-"ID" pairs
 			//conn.Write(200 OK + attachment )
 			conn.Write([]byte(resp200))
-			conn.Write([]byte("\r\n" + attachment))
+			conn.Write([]byte(contentLen+strconv.Itoa(len([]byte(attachment)))+"\r\n") )//首部字段
+			conn.Write([]byte("\r\n"+attachment))
 		}
 	}
 }
@@ -72,41 +78,41 @@ func fileIsExist(filePath string) (bool, error) {
 	}
 	return false, err
 }
-func parseDataField(data string) (string, string) {
+func parseDataField(data string)(string,string){
 	var Name string
 	var ID string
 	//data:   'Name=XXXXX&ID=XXX'
 
 	var splitIdx int
-	for i := 0; i < len(data); i++ {
-		if data[i] == '&' {
-			splitIdx = i
+	for i := 0;i<len(data);i++{
+		if data[i]=='&'{
+			splitIdx=i
 			break
 		}
 	}
 
-	if data[0:5] == "Name=" {
-		Name = data[5:splitIdx]
-		if data[splitIdx+1:splitIdx+4] == "ID=" {
-			ID = data[splitIdx+4 : len(data)]
+	if data[0:5]=="Name=" {
+		Name=data[5:splitIdx]
+		if(data[splitIdx+1:splitIdx+4]=="ID="){
+			ID=data[splitIdx+4:len(data)]
 		}
-	} else if data[0:3] == "ID=" {
-		ID = data[3:splitIdx]
-		if data[splitIdx+1:splitIdx+6] == "Name=" {
-			Name = data[splitIdx+6 : len(data)]
+	}else if data[0:3]=="ID=" {
+		ID=data[3:splitIdx]
+		if(data[splitIdx+1:splitIdx+6]=="Name="){
+			Name=data[splitIdx+6:len(data)]
 		}
-	} else {
-		Name = ""
-		ID = ""
+	}else{
+		Name=""
+		ID=""
 	}
 
-	return Name, ID
+	return Name,ID
 }
-func handle_request(conn net.Conn) {
+func handle_request(conn net.Conn)  {
 	var method_bd strings.Builder
 	var url_bd strings.Builder
 	var data_bd strings.Builder
-	var i int
+	var i  int
 	var filePath string
 
 	// 创建一个新切片， 用作保存数据的缓冲区
@@ -118,128 +124,124 @@ func handle_request(conn net.Conn) {
 	}
 
 	i = 0
-	for i < n && buf[i] != ' ' {
+	for(i < n && buf[i] != ' '){
 		//根据空格切分请求方法
 		method_bd.WriteByte(buf[i])
-		i++
+		i++;
 	}
-	for i < n && buf[i] == ' ' {
-		i++
-	} //游标移动到url field
+	for(i < n && buf[i] == ' '){i++}//游标移动到url field
 
-	for i < n && buf[i] != ' ' {
+	for(i < n && buf[i] != ' '){
 		//根据空格切分请求的url
 		url_bd.WriteByte(buf[i])
-		i++
+		i++;
 	}
-	for i < n && buf[i] == ' ' {
-		i++
-	} //游标移动到http version field
+	for(i < n && buf[i] == ' '){i++}//游标移动到http version field
 
 	var dataFieldStart int
-	for ; i < n; i++ { //连续的 \r\n\r\n 确定data field 起始
-		if buf[i] == '\r' && buf[i+1] == '\n' && buf[i+2] == '\r' && buf[i+3] == '\n' {
-			dataFieldStart = i + 4 //指向data field起始字节
+	for ;i<n;i++{//连续的 \r\n\r\n 确定data field 起始
+		if(buf[i]=='\r'&&buf[i+1]=='\n'&&buf[i+2]=='\r'&&buf[i+3]=='\n'){
+			dataFieldStart=i+4//指向data field起始字节
 			break
 		}
 	}
-	i = dataFieldStart
-	for i < n {
+	i=dataFieldStart
+	for(i < n){
 		//根据空格切分请求方法
 		data_bd.WriteByte(buf[i])
-		i++
+		i++;
 	}
 
-	method := method_bd.String()
-	url := url_bd.String()
-	data := data_bd.String()
 
-	var j = 0
-	for ; j < len(url); j++ {
-		if url[j] == '/' {
-			if j+1 < len(url) {
-				if url[j+1] != '/' {
+	method:=method_bd.String()
+	url:=url_bd.String()
+	data:=data_bd.String()
+
+	var j=0
+	for ;j < len(url); j++ {
+		if(url[j]=='/'){
+			if(j+1<len(url)){
+				if(url[j+1]!='/'){
 					//请求路径 /path...
 					break
 				}
-			} else { //  url 以'/'结尾
+			}else{//  url 以'/'结尾
 				break
 			}
 		}
 	}
 
-	if j == len(url) {
+	if(j==len(url)){
 		filePath = string('/')
-	} else {
-		filePath = url[j:len(url)] //   '/path' or '/'
+	}else{
+		filePath= url[j:len(url)]//   '/path' or '/'
 	}
 
-	filePath = rootPath + filePath
+	filePath=rootPath+filePath
 
-	if debug_mode {
-		fmt.Println("method=" + method)
-		fmt.Println("url=" + url)
-		fmt.Println("filepath=" + filePath)
+	if debug_mode{
+		fmt.Println(method)
+		fmt.Println(url)
+		fmt.Println(filePath)
 	}
 
-	if method == "GET" {
+
+	if(method == "GET"){
 		/*需求4-2：如果请求的url对应于目录下已经存在的html文件，则返回200 OK以及文件的全部内容。特别的是，要求能够处理带有子目录的url:*/
-		if debug_mode {
-			fmt.Println("len filePath:", len(filePath))
-			fmt.Println("filePath[-5:]:", filePath[len(filePath)-5:len(filePath)])
+		if debug_mode{
+			fmt.Println("len filePath:",len(filePath))
+			fmt.Println("filePath[-5:]:",filePath[len(filePath)-5:len(filePath)])
 		}
-		if len(filePath) > 5 && filePath[len(filePath)-5:len(filePath)] == ".html" {
-			fileExist, _ := fileIsExist(filePath)
-			if fileExist {
+		if(len(filePath)>5&&filePath[len(filePath)-5:len(filePath)]==".html"){
+			fileExist,_:=fileIsExist(filePath)
+			if(fileExist){
 				//返回200 OK 以及文件的全部内容
 				//response(int statusCode,Conn conn,String req,String filePath,String attachment)
-				response(200, conn, method, filePath, "")
-			} else {
+				response(200,conn,method,filePath,"")
+			}else{
 				//返回 404 Not Found response
-				response(404, conn, "", "", "")
+				response(404,conn,"","","")
 			}
-		} else {
+		}else{
 			//请求的是目录
-			fileExist, _ := fileIsExist(filePath + "/index.html")
-			if fileExist {
+			fileExist,_:=fileIsExist(filePath+"/index.html")
+			if(fileExist){
 				//返回200 OK 以及index.html文件的全部内容
-				response(200, conn, method, filePath+"/index.html", "")
-			} else {
+				response(200,conn,method,filePath+"/index.html","")
+			}else{
 				//返回 404 Not Found response
-				response(404, conn, "", "", "")
+				response(404,conn,"","","")
 			}
 		}
-	} else if method == "POST" {
-		if url == "/Post_show" {
+	}else if(method == "POST"){
+		if(url=="/Post_show"){
 			//解析data field
-			if debug_mode {
-				fmt.Println("data field: ", data)
+			if debug_mode{
+				fmt.Println("data field: ",data)
 			}
-			Name, ID := parseDataField(data)
-			attachment := "Your Name: " + Name + "\nYour ID: " + ID
-			response(200, conn, method, "", attachment)
+			Name,ID:=parseDataField(data)
+			attachment:="Your Name: "+Name+"\nYour ID: "+ID
+			response(200,conn,method,"",attachment)
 
-		} else {
+		}else{
 			//返回404 Not Found response message.
-			response(404, conn, "", "", "")
+			response(404,conn,"","","")
 		}
-	} else {
+	}else{
 		//既不是GET也不是POST，返回501 Not Implemented error message
-		response(501, conn, "", "", "")
+		response(501,conn,"","","")
 	}
 
 }
-
 // 每一个协程的处理，现在只是简单打印conn
 func SingleThreadWork(c1 chan net.Conn) {
 	for {
 		conn := <-c1
-		//TCP连接等待超时，断开连接
-		conn.SetDeadline(time.Now().Add(time.Duration(TCPTimeLimit) * time.Second))
 		handle_request(conn)
-		conn.Close()
 	}
 }
+
+const ThreadNum = 5
 
 func main() {
 
@@ -251,7 +253,7 @@ func main() {
 	fmt.Println("监听套接字，创建成功, 服务器开始监听。。。")
 	defer listen.Close() // 服务器结束前关闭 listener
 
-	connchan := make(chan net.Conn, WaitQueue)
+	connchan := make(chan net.Conn, ThreadNum*100)
 	for i := 0; i < ThreadNum; i++ {
 		go SingleThreadWork(connchan)
 	}
@@ -263,6 +265,8 @@ func main() {
 		if err != nil {
 			panic("Accept() err=  " + err.Error())
 		}
+		// 这里准备起一个协程，为客户端服务
+		//go accept_request_thread(conn)
 		connchan <- conn
 	}
 }
