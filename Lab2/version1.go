@@ -234,6 +234,7 @@ func SingleThreadWork(c1 chan net.Conn) {
 	for {
 		conn := <-c1
 		handle_request(conn)
+		conn.Close()
 	}
 }
 
