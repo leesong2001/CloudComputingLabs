@@ -5,24 +5,27 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
-var debug_mode=true
-var rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
+var debug_mode=false
+var rootPath="../Lab2"
 var resp404="HTTP/1.0 404 Not Found\r\n"
 var resp501="HTTP/1.0 501 Not Implemented\r\n"
 var resp200="HTTP/1.0 200 OK\r\n"
 
-func readFile(filePath string)([]byte){
+var contentHtml="Content-type: text/html\r\n"
+var contentLen="Content-length: "
+func readFile(filePath string)([]byte,int){
 	f, err := os.OpenFile(filePath, os.O_RDONLY,0600)
 	defer f.Close()
 	if err !=nil {
 		fmt.Println(err.Error())
 	} else {
 		contentByte,_:=ioutil.ReadAll(f)
-		return contentByte
+		return contentByte,len(contentByte)
 	}
-	return nil
+	return nil,0
 }
 func response(statusCode int,conn net.Conn,req string,filePath string,attachment string){
 	/* statusCode状态码
@@ -30,23 +33,32 @@ func response(statusCode int,conn net.Conn,req string,filePath string,attachment
 	 * conn 客户端连接
 	 * req 请求方式
 	 * attachment post请求的name-id pair
-	*/
+	 */
 
 	if(statusCode==501){
 		conn.Write([]byte(resp501))
+		conn.Write([]byte(contentLen+strconv.Itoa(0)+"\r\n") )//首部字段
+		conn.Write([]byte("\r\n"))//空行
 	}else if(statusCode==404){
 		conn.Write([]byte(resp404))
+		conn.Write([]byte(contentLen+strconv.Itoa(0)+"\r\n") )//首部字段
+		conn.Write([]byte("\r\n"))//空行
 	}else if(statusCode==200){
 		if(req=="GET"){
 			//conn.Write(200 OK 以及 html文件全部内容)
+			data,datasize:=readFile(filePath)
 			conn.Write([]byte(resp200))
-			conn.Write([]byte("\r\n"))
-			conn.Write(readFile(filePath))
+			conn.Write([]byte(contentHtml))//首部字段
+			conn.Write([]byte(contentLen+strconv.Itoa(datasize)+"\r\n") )//首部字段
+
+			conn.Write([]byte("\r\n"))//空行
+			conn.Write(data)
 
 		}else{
 			//返回200 OK并回显 "Name"-"ID" pairs
 			//conn.Write(200 OK + attachment )
 			conn.Write([]byte(resp200))
+			conn.Write([]byte(contentLen+strconv.Itoa(len([]byte(attachment)))+"\r\n") )//首部字段
 			conn.Write([]byte("\r\n"+attachment))
 		}
 	}
@@ -233,12 +245,16 @@ func main() {
 
 	// 循环等待客户端来链接
 	for   {
-		fmt.Println("阻塞等待客户端来链接...")
+	    if debug_mode{
+		    fmt.Println("阻塞等待客户端来链接...")
+		}
 		conn, err := listen.Accept() // 创建用户数据通信的socket
-		if err != nil {
-			fmt.Println("Accept() err=", err)
-		} else {
-			fmt.Println("通信套接字，创建成功。。。")
+		if debug_mode{
+            if err != nil {
+                fmt.Println("Accept() err=", err)
+            } else {
+                fmt.Println("通信套接字，创建成功。。。")
+            }
 		}
 		// 这里准备起一个协程，为客户端服务
 		go accept_request_thread(conn)
