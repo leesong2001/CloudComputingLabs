@@ -11,7 +11,7 @@ import (
 	"time"
 )
 const  debug_mode=true
-const  rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
+const  rootPath="../Lab2"
 const  resp404="HTTP/1.1 404 Not Found\r\n"
 const  resp501="HTTP/1.1 501 Not Implemented\r\n"
 const  resp200="HTTP/1.1 200 OK\r\n"
