@@ -8,17 +8,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
-var debug_mode=true
-var rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
-var resp404="HTTP/1.0 404 Not Found\r\n"
-var resp501="HTTP/1.0 501 Not Implemented\r\n"
-var resp200="HTTP/1.0 200 OK\r\n"
-var contentHtml="Content-type: text/html\r\n"
-var contentLen="Content-length: "
-var connectionAlive="Connection: keep-alive\r\n"
-var connectionClose="Connection: close\r\n"
-
+const  debug_mode=true
+const  rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
+const  resp404="HTTP/1.1 404 Not Found\r\n"
+const  resp501="HTTP/1.1 501 Not Implemented\r\n"
+const  resp200="HTTP/1.1 200 OK\r\n"
+const  contentHtml="Content-type: text/html\r\n"
+const  contentLen="Content-length: "
+const  connectionAlive="Connection: keep-alive\r\n"
+const  connectionClose="Connection: close\r\n"
+const  TimeoutDuration=500 * time.Millisecond
 var ip string
 var port string
 var ThreadNum int
@@ -122,163 +123,172 @@ func parseDataField(data string)(string,string){
 
 	return Name,ID
 }
-func handle_request(conn net.Conn)  bool {
-	var method_bd strings.Builder
-	var url_bd strings.Builder
-	//var data_bd strings.Builder
+func handle_request(conn net.Conn)  {
+	timeoutDuration := TimeoutDuration
+	for {
+		var method_bd strings.Builder
+		var url_bd strings.Builder
+		//var data_bd strings.Builder
 
-	var i  int
-	var filePath string
-	longConn:=false
-	// 创建一个新切片， 用作保存数据的缓冲区
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf) // 从conn中读取客户端发送的数据内容
+		var i int
+		var filePath string
+		longConn := false
+		// 创建一个新切片， 用作保存数据的缓冲区
+		buf := make([]byte, 1024)
+		conn.SetReadDeadline(time.Now().Add(timeoutDuration))
+		n, err := conn.Read(buf) // 从conn中读取客户端发送的数据内容
 
-	if err != nil {
-		fmt.Printf("客户端退出 err=%v\n", err)
-		return false
-	}
+		if err != nil {
+			fmt.Printf("客户端退出 err=%v\n", err)
+			conn.Close()
+			return
+		}
 
-	i = 0
-	for(i < n && buf[i] != ' '){
-		//根据空格切分请求方法
-		method_bd.WriteByte(buf[i])
-		i++;
-	}
-	for(i < n && buf[i] == ' '){i++}//游标移动到url field
+		i = 0
+		for (i < n && buf[i] != ' ') {
+			//根据空格切分请求方法
+			method_bd.WriteByte(buf[i])
+			i++;
+		}
+		for (i < n && buf[i] == ' ') {
+			i++
+		} //游标移动到url field
 
-	for(i < n && buf[i] != ' '){
-		//根据空格切分请求的url
-		url_bd.WriteByte(buf[i])
-		i++;
-	}
-	for(i < n && buf[i] == ' '){i++}//游标移动到http version field
+		for (i < n && buf[i] != ' ') {
+			//根据空格切分请求的url
+			url_bd.WriteByte(buf[i])
+			i++;
+		}
+		for (i < n && buf[i] == ' ') {
+			i++
+		} //游标移动到http version field
 
-	var dataFieldStart int
-	for ;i<n;i++{
-		if(buf[i]=='\r'&&buf[i+1]=='\n'){
-			//  协议版本\r\n首部字段\r\n...首部字段\r\n首部字段\r\n\r\n
-			//connection首部字段解析
-			if(i+11<n){if( strings.EqualFold(string(buf[i+2:i+12]),"connection") ){
-				for(i < n && buf[i] != ':'){i++}//buf[i]==':'
-				i++
-				for(i < n && buf[i] == ' '){i++}
-				//游标移动到connection value
-				valueStartIdx:=i
+		var dataFieldStart int
+		for ; i < n; i++ {
+			if (buf[i] == '\r' && buf[i+1] == '\n') {
+				//  协议版本\r\n首部字段\r\n...首部字段\r\n首部字段\r\n\r\n
+				//connection首部字段解析
+				if (i+11 < n) {
+					if (strings.EqualFold(string(buf[i+2:i+12]), "connection")) {
+						for (i < n && buf[i] != ':') {
+							i++
+						} //buf[i]==':'
+						i++
+						for (i < n && buf[i] == ' ') {
+							i++
+						}
+						//游标移动到connection value
+						valueStartIdx := i
 
-				for ;i<n;i++{
-					if(buf[i]==' '||buf[i]=='\r'){
-						break;
+						for ; i < n; i++ {
+							if (buf[i] == ' ' || buf[i] == '\r') {
+								break;
+							}
+						}
+						if (strings.EqualFold(string(buf[valueStartIdx:i]), "keep-alive")) {
+							longConn = true
+						}
 					}
 				}
-				if( strings.EqualFold(string(buf[valueStartIdx:i]),"keep-alive") ){
-					longConn=true
-				}
-			}}
-		}
-		if(buf[i]=='\r'&&buf[i+1]=='\n'&&buf[i+2]=='\r'&&buf[i+3]=='\n'){
-			//连续的 \r\n\r\n 确定data field 起始
-			dataFieldStart=i+4//指向data field起始字节
-			break
-		}
-	}
-
-	i=dataFieldStart
-	data:=string(buf[i:])
-
-	method:=method_bd.String()
-	url:=url_bd.String()
-
-
-	var j=0
-	for ;j < len(url); j++ {
-		if(url[j]=='/'){
-			if(j+1<len(url)){
-				if(url[j+1]!='/'){
-					//请求路径 /path...
-					break
-				}
-			}else{//  url 以'/'结尾
+			}
+			if (buf[i] == '\r' && buf[i+1] == '\n' && buf[i+2] == '\r' && buf[i+3] == '\n') {
+				//连续的 \r\n\r\n 确定data field 起始
+				dataFieldStart = i + 4 //指向data field起始字节
 				break
 			}
 		}
-	}
 
-	if(j==len(url)){
-		filePath = string('/')
-	}else{
-		filePath= url[j:len(url)]//   '/path' or '/'
-	}
+		i = dataFieldStart
+		data := string(buf[i:])
 
-	filePath=rootPath+filePath
+		method := method_bd.String()
+		url := url_bd.String()
 
-	if debug_mode{
-		fmt.Println("method",method)
-		fmt.Println("url",url)
-		fmt.Println("filePath",filePath)
-		fmt.Println("ConnectionHeader:",longConn)
-	}
-
-
-	if(method == "GET"){
-		/*需求4-2：如果请求的url对应于目录下已经存在的html文件，则返回200 OK以及文件的全部内容。特别的是，要求能够处理带有子目录的url:*/
-		if debug_mode{
-			fmt.Println("len filePath:",len(filePath))
-			fmt.Println("filePath[-5:]:",filePath[len(filePath)-5:len(filePath)])
-		}
-		if(len(filePath)>5&&filePath[len(filePath)-5:len(filePath)]==".html"){
-			fileExist,_:=fileIsExist(filePath)
-			if(fileExist){
-				//返回200 OK 以及文件的全部内容
-				//response(int statusCode,Conn conn,String req,String filePath,String attachment)
-				response(200,conn,method,filePath,"",longConn)
-			}else{
-				//返回 404 Not Found response
-				response(404,conn,"","","",longConn)
-			}
-		}else{
-			//请求的是目录
-			fileExist,_:=fileIsExist(filePath+"/index.html")
-			if(fileExist){
-				//返回200 OK 以及index.html文件的全部内容
-				response(200,conn,method,filePath+"/index.html","",longConn)
-			}else{
-				//返回 404 Not Found response
-				response(404,conn,"","","",longConn)
+		var j = 0
+		for ; j < len(url); j++ {
+			if (url[j] == '/') {
+				if (j+1 < len(url)) {
+					if (url[j+1] != '/') {
+						//请求路径 /path...
+						break
+					}
+				} else { //  url 以'/'结尾
+					break
+				}
 			}
 		}
-	}else if(method == "POST"){
-		if(url=="/Post_show"){
-			//解析data field
-			if debug_mode{
-				fmt.Println("data field: ",data)
-			}
-			Name,ID:=parseDataField(data)
-			attachment:="Your Name: "+Name+"\nYour ID: "+ID
-			response(200,conn,method,"",attachment,longConn)
 
-		}else{
-			//返回404 Not Found response message.
-			response(404,conn,"","","",longConn)
+		if (j == len(url)) {
+			filePath = string('/')
+		} else {
+			filePath = url[j:len(url)] //   '/path' or '/'
 		}
-	}else{
-		//既不是GET也不是POST，返回501 Not Implemented error message
-		response(501,conn,"","","",longConn)
+
+		filePath = rootPath + filePath
+
+		if debug_mode {
+			fmt.Println("method", method)
+			fmt.Println("url", url)
+			fmt.Println("filePath", filePath)
+			fmt.Println("ConnectionHeader:", longConn)
+		}
+
+		if (method == "GET") {
+			/*需求4-2：如果请求的url对应于目录下已经存在的html文件，则返回200 OK以及文件的全部内容。特别的是，要求能够处理带有子目录的url:*/
+			if debug_mode {
+				fmt.Println("len filePath:", len(filePath))
+				fmt.Println("filePath[-5:]:", filePath[len(filePath)-5:len(filePath)])
+			}
+			if (len(filePath) > 5 && filePath[len(filePath)-5:len(filePath)] == ".html") {
+				fileExist, _ := fileIsExist(filePath)
+				if (fileExist) {
+					//返回200 OK 以及文件的全部内容
+					//response(int statusCode,Conn conn,String req,String filePath,String attachment)
+					response(200, conn, method, filePath, "", longConn)
+				} else {
+					//返回 404 Not Found response
+					response(404, conn, "", "", "", longConn)
+				}
+			} else {
+				//请求的是目录
+				fileExist, _ := fileIsExist(filePath + "/index.html")
+				if (fileExist) {
+					//返回200 OK 以及index.html文件的全部内容
+					response(200, conn, method, filePath+"/index.html", "", longConn)
+				} else {
+					//返回 404 Not Found response
+					response(404, conn, "", "", "", longConn)
+				}
+			}
+		} else if (method == "POST") {
+			if (url == "/Post_show") {
+				//解析data field
+				if debug_mode {
+					fmt.Println("data field: ", data)
+				}
+				Name, ID := parseDataField(data)
+				attachment := "Your Name: " + Name + "\nYour ID: " + ID
+				response(200, conn, method, "", attachment, longConn)
+
+			} else {
+				//返回404 Not Found response message.
+				response(404, conn, "", "", "", longConn)
+			}
+		} else {
+			//既不是GET也不是POST，返回501 Not Implemented error message
+			response(501, conn, "", "", "", longConn)
+		}
+		if(!longConn){
+			conn.Close()
+			break
+		}
 	}
-	return longConn;
 }
 // 每一个协程的处理，现在只是简单打印conn
 func SingleThreadWork(c1 chan net.Conn) {
 	for {
 		conn := <-c1
-		for{
-			if !handle_request(conn) {
-				//短连接 or closed by client
-				conn.Close()
-				break
-			}
-
-		}
+		handle_request(conn)
 	}
 }
 
