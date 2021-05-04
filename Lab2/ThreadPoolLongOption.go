@@ -249,7 +249,7 @@ func SingleThreadWork(c1 chan net.Conn) {
 func main() {
 	ipInput := flag.String("ip", "127.0.0.1", "What is your ip_address?")
 	portInput := flag.String("port", "8888", "What is the port?")
-	numberThreadInput := flag.Int("number_thread", 1, "How much is the thread number?")
+	numberThreadInput := flag.Int("number-thread", 1, "How much is the thread number?")
 
 	flag.Parse() //解析输入的参数
 
