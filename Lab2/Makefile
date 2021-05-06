@@ -1,4 +1,5 @@
 BINARY_NAME=httpserver
-run:
-	go build -o $(BINARY_NAME) -v
-	./$(BINARY_NAME)
+all:
+	go build -o $(BINARY_NAME) ThreadPool.go
+clean:
+	-rm httpserver

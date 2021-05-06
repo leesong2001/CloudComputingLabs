@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"runtime"
 )
-const  debug_mode=true
-const  rootPath="D:/CloudComputing/CloudComputingLabs/Lab2"
+const  debug_mode=false
+const  rootPath="../Lab2"
 const  resp404="HTTP/1.1 404 Not Found\r\n"
 const  resp501="HTTP/1.1 501 Not Implemented\r\n"
 const  resp200="HTTP/1.1 200 OK\r\n"
@@ -295,21 +296,30 @@ func SingleThreadWork(c1 chan net.Conn) {
 func main() {
 	ipInput := flag.String("ip", "127.0.0.1", "What is your ip_address?")
 	portInput := flag.String("port", "8888", "What is the port?")
-	numberThreadInput := flag.Int("number_thread", 1, "How much is the thread number?")
-
+	numberThreadInput := flag.Int("number-thread", 1, "How much is the thread number?")
 	flag.Parse() //解析输入的参数
 
 	ip=*ipInput
 	port=*portInput
 	ThreadNum=*numberThreadInput
+	runtime.GOMAXPROCS(ThreadNum)
 
+	if debug_mode{
+		fmt.Println("ip=", ip)
+		fmt.Println("port=", port)
+		fmt.Println("ThreadNum=", ThreadNum)
+	}
 	listen, err := net.Listen("tcp", ":"+port) // 创建用于监听的 socket
 	if err != nil {
-		fmt.Println("listen err=", err)
+		if debug_mode{
+			fmt.Println("listen err=", err)
+		}
 		return
 	}
 	if debug_mode {
-		fmt.Println("监听套接字，创建成功, 服务器开始监听。。。")
+		if debug_mode{
+			fmt.Println("监听套接字，创建成功, 服务器开始监听。。。")
+		}
 	}
 	defer listen.Close() // 服务器结束前关闭 listener
 
@@ -329,8 +339,8 @@ func main() {
 		}
 		// 这里准备起一个协程，为客户端服务
 		//go accept_request_thread(conn)
+		
+		//向任务队列中添加待处理连接conn
 		connchan <- conn
 	}
 }
-
-/*http://127.0.0.1:8888/api/camera/get_ptz?camera_id=1324566666789876543*/
