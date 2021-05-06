@@ -205,12 +205,6 @@ func handle_request(conn net.Conn)  {
 		method := method_bd.String()
 		url := url_bd.String()
 
-		i = dataFieldStart
-		data := string(buf[i:])
-
-		method := method_bd.String()
-		url := url_bd.String()
-
 		var j = 0
 		for ; j < len(url); j++ {
 			if (url[j] == '/') {
