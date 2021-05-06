@@ -62,23 +62,21 @@ curl -i -X DELETE http://127.0.0.1:8888/none_Post_show
    对于成功的请求，其返回报文格式如下：
 
    ```
-   HTTP/1.1 200 OK	
-   Server: 
-   Content-length:
-   Content-type:
+   HTTP/1.0 200 OK
+   Content-type: text/html
+   Content-length: 63
    
-   //.html
+   <h1>
+      index.html
+      <span class="text-muted"></span>
+   </h1>
    ```
 
    而对于失败的请求，则返回404状态码：
 
    ```
-   HTTP/1.1 404 Not Found
-   Server: 
-   Content-length:
-   Content-type:
-   
-   //.html
+   HTTP/1.0 404 Not Found
+   Content-length: 0
    ```
 
 
@@ -87,12 +85,11 @@ curl -i -X DELETE http://127.0.0.1:8888/none_Post_show
    对于成功的POST，其返回报文格式如下：
 
    ```
-   HTTP/1.1 200 OK	
-   Server: 
-   Content-length:
-   Content-type:
-   
-   //.html
+   HTTP/1.0 200 OK
+   Content-length: 31
+
+   Your Name: HNU
+   Your ID: CS06142
    ```
 
    而对于失败的请求，则返回404状态码：
@@ -111,12 +108,8 @@ curl -i -X DELETE http://127.0.0.1:8888/none_Post_show
    对于GET与POST以外的方法，HTTP服务器不做处理，返回501状态码表示服务器不支持当前请求所需要的某个功能：
 
    ```
-   HTTP/1.1 501 Not Implemented
-   Server: 
-   Content-length:
-   Content-type:
-   
-   //.html
+   HTTP/1.0 501 Not Implemented
+   Content-length: 0
    ```
 
    
