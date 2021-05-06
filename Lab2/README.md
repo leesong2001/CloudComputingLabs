@@ -95,12 +95,8 @@ curl -i -X DELETE http://127.0.0.1:8888/none_Post_show
    而对于失败的请求，则返回404状态码：
 
    ```
-   HTTP/1.1 404 Not Found
-   Server: 
-   Content-length:
-   Content-type:
-   
-   //.html
+   HTTP/1.0 404 Not Found
+   Content-length: 0
    ```
 
 3. 其他方法
