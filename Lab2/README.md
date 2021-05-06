@@ -40,7 +40,7 @@ Lab2
     │   subdirTest.html
 ```
 
-1. GET 方法
+2. GET 方法
 
 ```
 curl -i -X GET http://127.0.0.1:8888/index.html
