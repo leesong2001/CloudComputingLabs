@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"net"
@@ -130,8 +131,8 @@ func parseDataField(data string)(string,string,bool){
 func handle_request(conn net.Conn)  {
 	timeoutDuration := TimeoutDuration
 	for {
-		var method_bd strings.Builder
-		var url_bd strings.Builder
+		var method_bd bytes.Buffer
+		var url_bd bytes.Buffer
 		//var data_bd strings.Builder
 
 		var i int
@@ -348,7 +349,7 @@ func main() {
 		}
 		// 这里准备起一个协程，为客户端服务
 		//go accept_request_thread(conn)
-		
+
 		//向任务队列中添加待处理连接conn
 		connchan <- conn
 	}
