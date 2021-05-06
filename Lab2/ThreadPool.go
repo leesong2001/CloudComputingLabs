@@ -94,7 +94,7 @@ func fileIsExist(filePath string) (bool, error) {
 	}
 	return false, err
 }
-func parseDataField(data string)(string,string){
+func parseDataField(data string)(string,string,bool){
 	var Name string
 	var ID string
 	//data:   'Name=XXXXX&ID=XXX'
@@ -120,9 +120,10 @@ func parseDataField(data string)(string,string){
 	}else{
 		Name=""
 		ID=""
+		return Name,ID,false
 	}
 
-	return Name,ID
+	return Name,ID,true
 }
 func handle_request(conn net.Conn)  {
 	timeoutDuration := TimeoutDuration
@@ -267,9 +268,14 @@ func handle_request(conn net.Conn)  {
 				if debug_mode {
 					fmt.Println("data field: ", data)
 				}
-				Name, ID := parseDataField(data)
+				Name, ID ,HasNameId:= parseDataField(data)
 				attachment := "Your Name: " + Name + "\nYour ID: " + ID
-				response(200, conn, method, "", attachment, longConn)
+				if HasNameId{
+					response(200, conn, method, "", attachment, longConn)
+				} else{
+					//返回404 Not Found response message.
+					response(404, conn, "", "", "", longConn)
+				}
 
 			} else {
 				//返回404 Not Found response message.
