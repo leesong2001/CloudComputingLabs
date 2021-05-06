@@ -205,6 +205,12 @@ func handle_request(conn net.Conn)  {
 		method := method_bd.String()
 		url := url_bd.String()
 
+		i = dataFieldStart
+		data := string(buf[i:])
+
+		method := method_bd.String()
+		url := url_bd.String()
+
 		var j = 0
 		for ; j < len(url); j++ {
 			if (url[j] == '/') {
@@ -297,6 +303,7 @@ func main() {
 	ipInput := flag.String("ip", "127.0.0.1", "What is your ip_address?")
 	portInput := flag.String("port", "8888", "What is the port?")
 	numberThreadInput := flag.Int("number-thread", 1, "How much is the thread number?")
+
 	flag.Parse() //解析输入的参数
 
 	ip=*ipInput
