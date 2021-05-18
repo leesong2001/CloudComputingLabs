@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"net"
@@ -106,30 +107,32 @@ func parseDataField(data string)(string,string,bool){
 			break
 		}
 	}
-
+	hasNameId:=false
 	if data[0:5]=="Name=" {
 		Name=data[5:splitIdx]
 		if(data[splitIdx+1:splitIdx+4]=="ID="){
 			ID=data[splitIdx+4:len(data)]
+			hasNameId=true
 		}
+		if debug_mode{fmt.Println("hasNameId:",hasNameId)}
 	}else if data[0:3]=="ID=" {
 		ID=data[3:splitIdx]
 		if(data[splitIdx+1:splitIdx+6]=="Name="){
 			Name=data[splitIdx+6:len(data)]
+			hasNameId=true
 		}
+		if debug_mode{fmt.Println("hasNameId:",hasNameId)}
 	}else{
 		Name=""
 		ID=""
-		return Name,ID,false
 	}
-
-	return Name,ID,true
+	return Name,ID,hasNameId
 }
 func handle_request(conn net.Conn)  {
 	timeoutDuration := TimeoutDuration
 	for {
-		var method_bd strings.Builder
-		var url_bd strings.Builder
+		var method_bd bytes.Buffer
+		var url_bd bytes.Buffer
 		//var data_bd strings.Builder
 
 		var i int
@@ -346,7 +349,7 @@ func main() {
 		}
 		// 这里准备起一个协程，为客户端服务
 		//go accept_request_thread(conn)
-		
+
 		//向任务队列中添加待处理连接conn
 		connchan <- conn
 	}
