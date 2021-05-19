@@ -6,24 +6,27 @@ import (
 	"strings"
 )
 
-var d map[string]string
+var d map[string]string = make(map[string]string)
 
 func ClientWork(c net.Conn) {
 	fmt.Println("receive ", c)
 	defer c.Close()
 	for {
-		var data []byte
+		data := make([]byte, 1024)
 		_, err := c.Read(data)
 		if err != nil {
 			fmt.Println("read error:", err)
 			break
 		}
 		s := strings.Split(string(data), " ")
-		fmt.Println(s)
 		if s[0] == "set" {
+			fmt.Println(s)
 			d[s[1]] = s[2]
 		} else if s[0] == "get" {
-			c.Write([]byte(d[s[1]]))
+			fmt.Println(s)
+			data = []byte(d[s[1]])
+			fmt.Println(string(data))
+			c.Write(data)
 		}
 	}
 }

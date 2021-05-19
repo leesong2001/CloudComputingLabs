@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	c, err := net.Dial("tcp", "175.24.152.230:8888")
+	c, err := net.Dial("tcp", "127.0.0.1:8888")
 	if err != nil {
 		fmt.Println("dial error:", err)
 		return
@@ -17,11 +17,12 @@ func main() {
 		fmt.Scan(&op)
 		if op == "set" {
 			fmt.Scan(&s1, &s2)
-			c.Write([]byte(op + " " + s1 + " " + s2))
+			fmt.Println(op + " " + s1 + " " + s2 + " ")
+			c.Write([]byte(op + " " + s1 + " " + s2 + " "))
 		} else if op == "get" {
 			fmt.Scan(&s1)
-			c.Write([]byte(op + " " + s1))
-			var data []byte
+			c.Write([]byte(op + " " + s1+" "))
+			data := make([]byte, 1024)
 			_, err := c.Read(data)
 			if err != nil {
 				fmt.Println("read error", err)
