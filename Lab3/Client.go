@@ -6,9 +6,10 @@ import (
 )
 
 const NotExist = "? Exist?"
+const Manager_IP_Port = "127.0.0.1:8888"
 
 func main() {
-	c, err := net.Dial("tcp", "127.0.0.1:8888")
+	c, err := net.Dial("tcp", Manager_IP_Port)
 	if err != nil {
 		fmt.Println("dial error:", err)
 		return

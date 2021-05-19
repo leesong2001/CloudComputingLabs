@@ -8,6 +8,9 @@ import (
 
 const filepath = "./record.txt" //日志文件保存目录
 const IP_Port = ":8888"         //本机IP和端口
+const IP_Port_S1 = ":11111"     //第一个服务器的IP和端口
+const IP_Port_S2 = ":11112"     //第二个服务器的IP和端口
+const IP_Port_S3 = ":11113"     //第三个服务器的IP和端口
 
 func SynWithServer(c net.Conn, data []byte) {
 	for {
@@ -33,9 +36,9 @@ func ServeClient(file *os.File, c net.Conn) {
 	fmt.Println("receive ", c)
 	defer c.Close()
 	// 此处连接三个服务器
-	c1, _ := net.Dial("tcp", ":11111")
-	// c2, _ := net.Dial("tcp", ":11112")
-	// c3, _ := net.Dial("tcp", ":11113")
+	c1, _ := net.Dial("tcp", IP_Port_S1)
+	// c2, _ := net.Dial("tcp", IP_Port_S2)
+	// c3, _ := net.Dial("tcp", IP_Port_S3)
 	defer c1.Close()
 	// defer c2.Close()
 	// defer c3.Close()
