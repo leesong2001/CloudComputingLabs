@@ -9,7 +9,8 @@ import (
 var d map[string]string = make(map[string]string)
 
 const debug = true
-const NotExist = "? Exist?"
+const NotExist = "? Exist?" // 文件不存在的标记
+const IP_Port = ":11111"    //本机IP和端口
 
 func work(c net.Conn) {
 	if debug {
@@ -49,7 +50,7 @@ func work(c net.Conn) {
 	}
 }
 func main() {
-	l, err := net.Listen("tcp", ":11111")
+	l, err := net.Listen("tcp", IP_Port)
 	if err != nil {
 		fmt.Println("listen error:", err)
 		return

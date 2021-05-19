@@ -6,7 +6,8 @@ import (
 	"os"
 )
 
-const filepath = "./record.txt"
+const filepath = "./record.txt" //日志文件保存目录
+const IP_Port = ":8888"         //本机IP和端口
 
 func SynWithServer(c net.Conn, data []byte) {
 	for {
@@ -76,7 +77,7 @@ func ServeClient(file *os.File, c net.Conn) {
 	}
 }
 func main() {
-	l, err := net.Listen("tcp", ":8888")
+	l, err := net.Listen("tcp", IP_Port)
 	if err != nil {
 		fmt.Println("listen error:", err)
 		return
