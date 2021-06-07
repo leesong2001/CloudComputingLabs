@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
 )
 
 /*
@@ -24,7 +26,10 @@ coordinator_config:
 var mode = "coordinator"
 var configPath = "./src/coordinator.conf"
 var coordinatorIPPort = "175.10.105.61:8001"
-var participantIPPortArr = [3]string{"192.168.66.201:8002", "192.168.66.202:8003", "192.168.66.203:8004"}
+
+//var participantIPPortArr = [3]string{"192.168.66.201:8002", "192.168.66.202:8003", "192.168.66.203:8004"}
+var participantIPPortArr []string
+var connParticipant []net.Conn
 
 func readConfig() {
 	/*读取配置文件
@@ -32,6 +37,23 @@ func readConfig() {
 	设置coordinatorIPPort与participantIPPort[]的值
 	设置
 	*/
+	f, err := os.Open(configPath)
+	if err != nil {
+		print(err.Error())
+		return
+	}
+	defer f.Close()
+	input := bufio.NewScanner(f)
+	for input.Scan() {
+		st := input.Text()
+		if len(st) >= 4 && st[:4] == "mode" {
+			mode = st[5:]
+		} else if len(st) >= 16 && st[:16] == "coordinator_info" {
+			coordinatorIPPort = st[17:]
+		} else if len(st) >= 16 && st[:16] == "participant_info" {
+			participantIPPortArr = append(participantIPPortArr, st[17:])
+		}
+	}
 	println(mode)
 	println(configPath)
 	println(coordinatorIPPort)
@@ -116,11 +138,20 @@ func main() {
 	readConfig()
 	//绑定IP:Port
 	l, err := net.Listen("tcp", coordinatorIPPort)
+	defer l.Close()
 	if err != nil {
 		fmt.Println("coordinator listen error:", err)
 		return
 	}
-
+	for _, i := range participantIPPortArr {
+		cn, err := net.Dial("tcp", i)
+		if err != nil {
+			fmt.Printf("link to %s failed: %s\n", i, err.Error())
+			continue
+		}
+		connParticipant = append(connParticipant, cn)
+		defer cn.Close()
+	}
 	//监听端口，accept客户端的连接请求
 	for {
 		conn, err := l.Accept()
