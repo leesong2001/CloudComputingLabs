@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 )
 
 /*
@@ -36,9 +37,7 @@ func readConfig() {
 	println(mode)
 	println(configPath)
 	println(coordinatorIPPort)
-	for _, participantIPPort := range participantIPPortArr {
-		println(participantIPPort)
-	}
+	println(participantIPPort)
 }
 
 //心跳检测
@@ -79,20 +78,128 @@ type command struct {
 
 func parseCmd(RESPArraysStr string) command {
 	//解析RESP Arrays格式指令
+	//*4 $3 SET $7 CS06142 $5 Cloud $9 Computing
+	//小字符串直接split
 
-	//e.g. del cmd:
-	cmd := command{cmdType: del}
-	cmd.key = append(cmd.key, "k1", "k2", "k3")
+	RESPArraysTmp := strings.Split(RESPArraysStr, "\r\n")
+	RESPArraysTmp = RESPArraysTmp[:len(RESPArraysTmp)-1]
+	for i, ele := range RESPArraysTmp {
+		println(i, ":", ele)
+	}
+	var RESPArrays []string
+	arraySize, _ := strconv.Atoi(RESPArraysTmp[0][1:])
+	if arraySize == 0 {
+		//心跳包：空包
+		heartBeatsPacket := command{cmdType: heartBeats}
+		return heartBeatsPacket
+	}
+	var i = 2
+	for {
+		if i > arraySize*2 {
+			break
+		}
+		RESPArrays = append(RESPArrays, RESPArraysTmp[i])
+		i = i + 2
+	}
+	cmd := command{}
+	cmdTypeStr := RESPArrays[0]
+	if cmdTypeStr == "SET" {
+		setCmd := command{cmdType: set}
+		setCmd.key = append(setCmd.key, RESPArrays[1])
+		setCmd.value = RESPArrays[2]
+		cmd = setCmd
+	}
+	if cmdTypeStr == "GET" {
+		getCmd := command{cmdType: get}
+		getCmd.key = append(getCmd.key, RESPArrays[1])
+		cmd = getCmd
+	}
+	if cmdTypeStr == "DEL" {
+		delCmd := command{cmdType: del}
+		for i = 1; i < arraySize; i++ {
+			delCmd.key = append(delCmd.key, RESPArrays[i])
+		}
+		cmd = delCmd
+	}
+	//大字符串读取？
+	/*var RESPArray []string //字符串序列 e.g. []arr={set,key,val}
+	var err error
+	var i =0
+	for{
+		if RESPArraysStr[i]=='*'||RESPArraysStr[i]=='$'{
+			var eleSize int
+			sizeStr:=""
+			sizeBeginIdx:=i+1
+			chType:=RESPArraysStr[i]
+			for{
+				if RESPArraysStr[i:i+2]=="\r\n" {
+					sizeStr=RESPArraysStr[sizeBeginIdx:i]
+					eleSize,err =strconv.Atoi(sizeStr)
+					break
+				}
+				i=i+1
+			}
+			if chType=='$'{
+				i=i+2
+			}
+		}
+
+		i=i+1
+		if i>= len(RESPArraysStr){
+			break
+		}
+	}*/
 	return cmd
 }
-func cmd2RESPArr(command) string {
+func getCmdStr(cmdType int) string {
+	if cmdType == set {
+		return "SET"
+	}
+	if cmdType == get {
+		return "GET"
+	}
+	if cmdType == del {
+		return "DEL"
+	}
+	return ""
+}
+func cmd2RESPArr(cmd command) string {
 	//封装指令为RESP Arrays
-	RESPArraysStr := ""
+	/*
+		set        = 0    set key value
+		get        = 1    get key
+		del        = 2    del key1 key2 keyi
+	*/
 
+	valueStrLen := len(cmd.value)
+	var valueSplit []string
+	if valueStrLen > 0 {
+		valueSplitTmp := strings.Split(cmd.value, " ")
+		for _, val := range valueSplitTmp {
+			valueSplit = append(valueSplit, val)
+		}
+
+	}
+	RESPArraysSize := 1 + len(cmd.key) + len(valueSplit)
+	RESPArraysStr := "*" + strconv.Itoa(RESPArraysSize) + "\r\n"
+	//append cmdType
+	RESPArraysStr = RESPArraysStr + "$" + strconv.Itoa(len(getCmdStr(cmd.cmdType))) + "\r\n" + getCmdStr(cmd.cmdType) + "\r\n"
+	//append key[]
+	for _, key := range cmd.key {
+		RESPArraysStr = RESPArraysStr + "$" + strconv.Itoa(len(key)) + "\r\n" + key + "\r\n"
+	}
+	for _, val := range valueSplit {
+		RESPArraysStr = RESPArraysStr + "$" + strconv.Itoa(len(val)) + "\r\n" + val + "\r\n"
+	}
 	return RESPArraysStr
 }
 func str2RESPArr(str string) string {
-
+	stringArr := strings.Split(str, " ")
+	RESPArraysStr := "*" + strconv.Itoa(len(stringArr)) + "\r\n"
+	for _, ele := range stringArr {
+		RESPArraysStr = RESPArraysStr + "$" + strconv.Itoa(len(ele)) + "\r\n" + ele + "\r\n"
+	}
+	return RESPArraysStr
 }
 
 //存储数据的内存空间
@@ -199,7 +306,38 @@ func coordinatorHandle(conn net.Conn) {
 	}
 
 }
+func testparseCmd() {
 
+	RESPArraysStrTest := []string{"*3\r\n$3\r\nSET\r\n$5\r\nkeynm\r\n$7\r\nvaluenm\r\n",
+		"*2\r\n$3\r\nGET\r\n$8\r\nnoneitem\r\n",
+		"*2\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n",
+		"*3\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n",
+	}
+
+	cmd := parseCmd(RESPArraysStrTest[0])
+	println("cmdType:", cmd.cmdType)
+	for i, key := range cmd.key {
+		println("key", i, " : ", key)
+	}
+	println("value : ", cmd.value)
+}
+func testStr2RESPArr() {
+	testStr := []string{"prepare 0", "prepare 1", "prepare",
+		"commit 1", "commit",
+		"rollback 1", "rollback",
+	}
+	i := 6
+	println(testStr[i], " ==str2RESPArr==> ", str2RESPArr(testStr[i]))
+}
+func testCmd2RESPArr() {
+	cmdArr := []command{}
+	cmdArr = append(cmdArr, command{cmdType: set, key: []string{"key1"}, value: "val1"})
+	cmdArr = append(cmdArr, command{cmdType: get, key: []string{"key1"}})
+	cmdArr = append(cmdArr, command{cmdType: del, key: []string{"key1", "key2", "key3"}})
+
+	i := 1
+	println(cmd2RESPArr(cmdArr[i]))
+}
 func main() {
 	database = make(map[string]string)
 	readConfig()
