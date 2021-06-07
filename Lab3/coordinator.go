@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"net"
+)
+
 /*
 add virt_nics
 ifconfig lo:0 192.168.66.101/24
@@ -18,7 +23,7 @@ coordinator_config:
 //基本配置信息
 var mode = "coordinator"
 var configPath = "./src/coordinator.conf"
-var coordinatorIPPort = "192.168.66.101:8001"
+var coordinatorIPPort = "175.10.105.61:8001"
 var participantIPPortArr = [3]string{"192.168.66.201:8002", "192.168.66.202:8003", "192.168.66.203:8004"}
 
 func readConfig() {
@@ -76,7 +81,53 @@ func cmd2RESPArr(command) string {
 
 	return RESPArraysStr
 }
+
+//响应客户端请求的工作协程
+var debugClientHandle = true
+
+func clientHandle(conn net.Conn) {
+	if debugClientHandle {
+		fmt.Println("receive client", conn)
+	}
+	defer conn.Close() //函数/协程结束时关闭conn
+	for {
+		cmdRESPArrByte := make([]byte, 1024)
+		n, err := conn.Read(cmdRESPArrByte)
+		if err != nil {
+			fmt.Println("read error:", err)
+			break
+		}
+		cmdRESPArrStr := string(cmdRESPArrByte[:n])
+		cmd := parseCmd(cmdRESPArrStr)
+		cmdType := cmd.cmdType
+		if cmdType == set {
+
+		}
+		if cmdType == get {
+
+		}
+		if cmdType == del {
+
+		}
+	}
+}
+
 func main() {
 	readConfig()
+	//绑定IP:Port
+	l, err := net.Listen("tcp", coordinatorIPPort)
+	if err != nil {
+		fmt.Println("coordinator listen error:", err)
+		return
+	}
 
+	//监听端口，accept客户端的连接请求
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("coordinatorIPPort accept error:", err)
+			return
+		}
+		go clientHandle(conn)
+	}
 }
