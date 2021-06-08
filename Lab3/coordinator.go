@@ -86,10 +86,10 @@ func heartBeatsCheck(c chan command, ot chan string) {
 	}
 	alive := len(heartbeatsCnt) //当前活着的participants
 	for {
+		<-tick.C //计时器到达
 		for _, cn := range connParticipant {
 			cn.SetDeadline(time.Now().Add(time.Microsecond * 20)) //20ms 超时
 		}
-		<-tick.C //计时器到达
 		var cmd command
 		cmd.cmdType = heartBeats
 		info := "*0\r\n"
