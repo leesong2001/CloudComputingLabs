@@ -80,15 +80,15 @@ func eraseconn(p int) {
 // c为用户输入，ot为反馈信息
 func heartBeatsCheck(c chan command, ot chan string) {
 	tick := time.NewTicker(time.Millisecond * 30) //30ms
-	for _, cn := range connParticipant {
-		cn.SetDeadline(time.Now().Add(time.Microsecond * 20)) //20ms 超时
-	}
 	tmp := make([][]byte, len(heartbeatsCnt))
 	for i := 0; i < len(heartbeatsCnt); i++ {
 		tmp[i] = make([]byte, 1024)
 	}
 	alive := len(heartbeatsCnt) //当前活着的participants
 	for {
+		for _, cn := range connParticipant {
+			cn.SetDeadline(time.Now().Add(time.Microsecond * 20)) //20ms 超时
+		}
 		<-tick.C //计时器到达
 		var cmd command
 		cmd.cmdType = heartBeats
