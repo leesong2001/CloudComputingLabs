@@ -5,49 +5,33 @@ import (
 	"net"
 )
 
-const NotExist = "? Exist?"
-const Manager_IP_Port = "127.0.0.1:8888"
+var coordinatorIPPort = "175.10.105.61:8001"
 
 func main() {
-	c, err := net.Dial("tcp", Manager_IP_Port)
+	conn, err := net.Dial("tcp", coordinatorIPPort)
 	if err != nil {
 		fmt.Println("dial error:", err)
 		return
 	}
-	for {
-		var op string
-		var s1, s2 string
-		fmt.Scan(&op)
-		info := make([]byte, 1024)
-		if op == "set" {
-			fmt.Scan(&s1, &s2)
-			fmt.Println(op + " " + s1 + " " + s2)
-			c.Write([]byte(op + " " + s1 + " " + s2))
-			len, err := c.Read(info)
-			sts := string(info[:len])
-			if sts == "NAK" {
-				fmt.Println("操作失败")
-			} else if sts == "ACK" {
-				fmt.Println("操作成功")
-			} else if err != nil {
-				fmt.Println("远程连接断开")
-			} else {
-				fmt.Println("未知错误")
-			}
-		} else if op == "get" {
-			fmt.Scan(&s1)
-			c.Write([]byte(op + " " + s1))
-			len, err := c.Read(info)
-			if err != nil {
-				fmt.Println("read error", err)
-				break
-			}
-			s := string(info[:len])
-			if s == NotExist {
-				fmt.Printf("key [%s] not exist\n", s1)
-			} else {
-				fmt.Println(s)
-			}
+	testRESPArraysStr := []string{
+		"*3\r\n$3\r\nSET\r\n$5\r\nkeynm\r\n$7\r\nvaluenm\r\n",
+		"*2\r\n$3\r\nGET\r\n$8\r\nnoneitem\r\n",
+		"*2\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n",
+		"*3\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n"}
+	for _, RESPArrays := range testRESPArraysStr {
+		//发送指令消息给协同者
+		conn.Write([]byte(RESPArrays))
+		fmt.Println("send msg : " + RESPArrays)
+
+		//接收服务端反馈
+		buffer := make([]byte, 1024)
+		n, err := conn.Read(buffer)
+		if err != nil {
+			fmt.Println("rcv err msg from server: " + RESPArrays)
+			return
 		}
+		rcvData := string(buffer[:n])
+		fmt.Println("raw rcv data: \n" + rcvData)
+
 	}
 }
