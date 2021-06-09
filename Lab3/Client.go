@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-var coordinatorIPPort = "192.168.136.1:8001"
+var coordinatorIPPort = "192.168.66.101:8001"
 
 func main() {
 	conn, err := net.Dial("tcp", coordinatorIPPort)
