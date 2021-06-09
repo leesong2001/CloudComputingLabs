@@ -150,6 +150,14 @@ func parseCmd(RESPArraysStr string) command {
 		}
 		cmd = delCmd
 	}
+	if cmdTypeStr == "commit" {
+		comCmd := command{cmdType: commit}
+		cmd = comCmd
+	}
+	if cmdTypeStr == "rollback" {
+		rollCmd := command{cmdType: rollback}
+		cmd = rollCmd
+	}
 	//大字符串读取？
 	/*var RESPArray []string //字符串序列 e.g. []arr={set,key,val}
 	var err error
@@ -189,6 +197,12 @@ func getCmdStr(cmdType int) string {
 	}
 	if cmdType == del {
 		return "DEL"
+	}
+	if cmdType == commit {
+		return "commit"
+	}
+	if cmdType == rollback {
+		return "rollback"
 	}
 	return ""
 }
@@ -248,100 +262,103 @@ func coordinatorHandle(conn net.Conn) {
 	//心跳包接收
 	//1.准备阶段：接收来自协同者进程的请求报文，携带者要执行的指令
 	cmdRESPArrByte := make([]byte, 1024)
-	n, err := conn.Read(cmdRESPArrByte)
-	if err != nil {
-		fmt.Println("read error:", err)
-		return
-	}
-	cmdRESPArrStr := string(cmdRESPArrByte[:n])
-	if debugClientHandle {
-		print(cmdRESPArrStr)
-	}
-	cmd := parseCmd(cmdRESPArrStr)
-	/*
-		1.心跳包
-		2.set key val
-		3.get key
-		4.del key[]
-	*/
-	cmdType := cmd.cmdType
-	if cmdType == heartBeats {
-		//响应心跳包
-		conn.Write([]byte(HeartBeatsResps))
-		return
-	}
-	var valueArr []string
-	var isExistArr []bool
-	if cmdType == set {
-		//set key val
-		val, isExist := database[cmd.key[0]]
-		valueArr = append(valueArr, val)
-		isExistArr = append(isExistArr, isExist)
-	}
-
-	if cmdType == get {
-		val, isExist := database[cmd.key[0]]
-		valueArr = append(valueArr, val)
-		isExistArr = append(isExistArr, isExist)
-
-	}
-	if cmdType == del {
-		for _, key := range cmd.key {
-			val, isExist := database[key]
+	for {
+		n, err := conn.Read(cmdRESPArrByte)
+		if err != nil {
+			fmt.Println("read error:", err)
+			return
+		}
+		cmdRESPArrStr := string(cmdRESPArrByte[:n])
+		if debugClientHandle {
+			print(cmdRESPArrStr)
+		}
+		cmd := parseCmd(cmdRESPArrStr)
+		/*
+			1.心跳包
+			2.set key val
+			3.get key
+			4.del key[]
+		*/
+		cmdType := cmd.cmdType
+		if cmdType == heartBeats {
+			//响应心跳包
+			conn.Write([]byte(HeartBeatsResps))
+			return
+		}
+		var valueArr []string
+		var isExistArr []bool
+		if cmdType == set {
+			//set key val
+			val, isExist := database[cmd.key[0]]
 			valueArr = append(valueArr, val)
 			isExistArr = append(isExistArr, isExist)
 		}
-	}
-	//2.prepare ack阶段：响应准备阶段的请求，开始投票
-	//目前没有加锁，且由于是严格串行，不存在资源冲突，直接返回ACK:"prepare 1 taskid"
-	//为了适应CYH目前的代码 直接返回ACK:SUCCESS="+OK\r\n"
-	//conn.Write([]byte( str2RESPArr("prepare 1 "+cmd.taskid)  ) )
-	//conn.Write([]byte(str2RESPArr("prepare 1")))
-	if debugClientHandle {
-		print("prepare ack : SUCCESS")
-	}
-	conn.Write([]byte(str2RESPArr(SUCCESS)))
-	//3.commit or rollback
-	//4.commit or rollback ack
-	n, err = conn.Read(cmdRESPArrByte)
-	if err != nil {
-		fmt.Println("read error:", err)
-		return
-	}
-	cmt_rbkRESPArrStr := string(cmdRESPArrByte[:n])
-	cmt_rbk := parseCmd(cmt_rbkRESPArrStr)
-	cmt_rbkType := cmt_rbk.cmdType
-	if cmt_rbkType == commit {
-		if cmdType == set {
-			database[cmd.key[0]] = cmd.value
-			conn.Write([]byte(SUCCESS))
-		}
+
 		if cmdType == get {
-			if isExistArr[0] {
-				//get的值存在
-				//conn.Write([]byte(str2RESPArr(valueArr[0]+" "+cmd.taskid)))
-				conn.Write([]byte(str2RESPArr(valueArr[0])))
-			} else {
-				//conn.Write([]byte(str2RESPArr("nil"+" "+cmd.taskid)))
-				conn.Write([]byte(str2RESPArr("nil")))
-			}
+			val, isExist := database[cmd.key[0]]
+			valueArr = append(valueArr, val)
+			isExistArr = append(isExistArr, isExist)
+
 		}
 		if cmdType == del {
-			delNum := 0 //删除key的总数
-			for i, isExist := range isExistArr {
-				if isExist {
-					delete(database, cmd.key[i])
-					delNum += 1
+			for _, key := range cmd.key {
+				val, isExist := database[key]
+				valueArr = append(valueArr, val)
+				isExistArr = append(isExistArr, isExist)
+			}
+		}
+		//2.prepare ack阶段：响应准备阶段的请求，开始投票
+		//目前没有加锁，且由于是严格串行，不存在资源冲突，直接返回ACK:"prepare 1 taskid"
+		//为了适应CYH目前的代码 直接返回ACK:SUCCESS="+OK\r\n"
+		//conn.Write([]byte( str2RESPArr("prepare 1 "+cmd.taskid)  ) )
+		//conn.Write([]byte(str2RESPArr("prepare 1")))
+		if debugClientHandle {
+			print("prepare ack : SUCCESS")
+		}
+		conn.Write([]byte((SUCCESS)))
+		//3.commit or rollback
+		//4.commit or rollback ack
+		n, err = conn.Read(cmdRESPArrByte)
+		if err != nil {
+			fmt.Println("read error:", err)
+			return
+		}
+		cmt_rbkRESPArrStr := string(cmdRESPArrByte[:n])
+		cmt_rbk := parseCmd(cmt_rbkRESPArrStr)
+		cmt_rbkType := cmt_rbk.cmdType
+		fmt.Println("cmdtype: " + getCmdStr(cmdType))
+		fmt.Println("cmt_rbkType: " + getCmdStr(cmt_rbkType))
+		if cmt_rbkType == commit {
+			if cmdType == set {
+				database[cmd.key[0]] = cmd.value
+				conn.Write([]byte(SUCCESS))
+			}
+			if cmdType == get {
+				if isExistArr[0] {
+					//get的值存在
+					//conn.Write([]byte(str2RESPArr(valueArr[0]+" "+cmd.taskid)))
+					conn.Write([]byte(str2RESPArr(valueArr[0])))
+				} else {
+					//conn.Write([]byte(str2RESPArr("nil"+" "+cmd.taskid)))
+					conn.Write([]byte(str2RESPArr("nil")))
 				}
 			}
-			conn.Write([]byte(":" + strconv.Itoa(delNum) + "\r\n"))
+			if cmdType == del {
+				delNum := 0 //删除key的总数
+				for i, isExist := range isExistArr {
+					if isExist {
+						delete(database, cmd.key[i])
+						delNum += 1
+					}
+				}
+				conn.Write([]byte(":" + strconv.Itoa(delNum) + "\r\n"))
+			}
+		}
+		if cmt_rbkType == rollback {
+			//什么也不做
+			conn.Write([]byte(SUCCESS))
 		}
 	}
-	if cmt_rbkType == rollback {
-		//什么也不做
-		conn.Write([]byte(SUCCESS))
-	}
-
 }
 func testparseCmd() {
 

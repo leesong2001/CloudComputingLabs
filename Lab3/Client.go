@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-var coordinatorIPPort = "175.10.105.61:8001"
+var coordinatorIPPort = "192.168.136.1:8001"
 
 func main() {
 	conn, err := net.Dial("tcp", coordinatorIPPort)
@@ -17,7 +17,9 @@ func main() {
 		"*3\r\n$3\r\nSET\r\n$5\r\nkeynm\r\n$7\r\nvaluenm\r\n",
 		"*2\r\n$3\r\nGET\r\n$8\r\nnoneitem\r\n",
 		"*2\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n",
-		"*3\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n"}
+		"*3\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n",
+		"*2\r\n$3\r\nGET\r\n$5\r\nkeynm\r\n",
+	}
 	for _, RESPArrays := range testRESPArraysStr {
 		//发送指令消息给协同者
 		conn.Write([]byte(RESPArrays))
