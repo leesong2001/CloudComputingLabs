@@ -109,8 +109,11 @@ func parseCmd(RESPArraysStr string) command {
 
 	RESPArraysTmp := strings.Split(RESPArraysStr, "\r\n")
 	RESPArraysTmp = RESPArraysTmp[:len(RESPArraysTmp)-1]
-	for i, ele := range RESPArraysTmp {
-		println(i, ":", ele)
+	if debugClientHandle {
+		print("parseCmd() debug info")
+		for i, ele := range RESPArraysTmp {
+			println(i, ":", ele)
+		}
 	}
 	var RESPArrays []string
 	arraySize, _ := strconv.Atoi(RESPArraysTmp[0][1:])
@@ -251,6 +254,9 @@ func coordinatorHandle(conn net.Conn) {
 		return
 	}
 	cmdRESPArrStr := string(cmdRESPArrByte[:n])
+	if debugClientHandle {
+		print(cmdRESPArrStr)
+	}
 	cmd := parseCmd(cmdRESPArrStr)
 	/*
 		1.心跳包
@@ -291,6 +297,9 @@ func coordinatorHandle(conn net.Conn) {
 	//为了适应CYH目前的代码 直接返回ACK:SUCCESS="+OK\r\n"
 	//conn.Write([]byte( str2RESPArr("prepare 1 "+cmd.taskid)  ) )
 	//conn.Write([]byte(str2RESPArr("prepare 1")))
+	if debugClientHandle {
+		print("prepare ack : SUCCESS")
+	}
 	conn.Write([]byte(str2RESPArr(SUCCESS)))
 	//3.commit or rollback
 	//4.commit or rollback ack
