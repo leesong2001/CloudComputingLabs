@@ -59,11 +59,11 @@ func readConfig() {
 			participantIPPortArr = append(participantIPPortArr, st[17:])
 		}
 	}
-	println(mode)
-	println(configPath)
-	println(coordinatorIPPort)
+	fmt.Println(mode)
+	fmt.Println(configPath)
+	fmt.Println(coordinatorIPPort)
 	for _, participantIPPort := range participantIPPortArr {
-		println(participantIPPort)
+		fmt.Println(participantIPPort)
 	}
 }
 
@@ -107,7 +107,7 @@ func parseCmd(RESPArraysStr string) command {
 	if debugClientHandle {
 		print("parseCmd() debug info")
 		for i, ele := range RESPArraysTmp {
-			println(i, ":", ele)
+			fmt.Println(i, ":", ele)
 		}
 	}
 	var RESPArrays []string
@@ -199,6 +199,9 @@ func getCmdStr(cmdType int) string {
 	if cmdType == rollback {
 		return "rollback"
 	}
+	if cmdType == heartBeats {
+		return "heartBeats"
+	}
 	return ""
 }
 func cmd2RESPArr(cmd command) string {
@@ -252,7 +255,7 @@ var debugClientHandle = true
 
 func coordinatorHandle(conn net.Conn) {
 	if debugClientHandle {
-		fmt.Println("receive from coordinator", conn)
+		fmt.Println("receive conn from coordinator ", conn.LocalAddr(), " || ", conn.RemoteAddr())
 	}
 	defer conn.Close() //函数/协程结束时关闭conn
 	//监听消息
@@ -280,7 +283,7 @@ func coordinatorHandle(conn net.Conn) {
 		if cmdType == heartBeats {
 			//响应心跳包
 			conn.Write([]byte(HeartBeatsResps))
-			return
+			continue
 		}
 		var valueArr []string
 		var isExistArr []bool
@@ -310,7 +313,7 @@ func coordinatorHandle(conn net.Conn) {
 		//conn.Write([]byte( str2RESPArr("prepare 1 "+cmd.taskid)  ) )
 		//conn.Write([]byte(str2RESPArr("prepare 1")))
 		if debugClientHandle {
-			println("prepare ack : SUCCESS")
+			fmt.Println("prepare ack : SUCCESS")
 		}
 		conn.Write([]byte((SUCCESS)))
 		//3.commit or rollback
@@ -360,7 +363,7 @@ func coordinatorHandle(conn net.Conn) {
 	}
 }
 
-var connParticipant []net.Conn
+var connParticipant [3]net.Conn
 
 func eraseconn(p int) {
 	connParticipant[p] = nil
@@ -370,7 +373,7 @@ func eraseconn(p int) {
 
 // c为用户输入，ot为反馈信息
 func heartBeatsCheck(c chan command, ot chan string) {
-	tick := time.NewTicker(time.Millisecond * 100) //30ms
+	tick := time.NewTicker(time.Millisecond * 50) //30ms
 	tmp := make([][]byte, len(heartbeatsCnt))
 	var tmpsz [3]int
 	for i := 0; i < len(heartbeatsCnt); i++ {
@@ -402,7 +405,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			if err != nil {
 				eraseconn(i)
 				alive--
-				println(err.Error())
+				fmt.Println("heartBeatsCheck() prepare Write: ", err.Error())
 			}
 		}
 		for i, _ := range heartbeatsCnt {
@@ -418,13 +421,14 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				heartbeatsCnt[i]++
 				eraseconn(i)
 				alive--
-				println(err.Error())
+				fmt.Println(err.Error())
 			}
-			//println(heartbeatsCnt[i])
+			//fmt.Println(heartbeatsCnt[i])
 		}
+		fmt.Println("heartBeatsCheck() cmdType: ", cmd.cmdType, " ", getCmdStr(cmd.cmdType))
 		if cmd.cmdType != heartBeats { //set get del 等操作，2阶段提交
 			if debugClientHandle {
-				println("debug: " + strconv.Itoa(cmd.cmdType))
+				fmt.Println("debug: " + strconv.Itoa(cmd.cmdType))
 			}
 			acpcnt := 0
 			for i, _ := range heartbeatsCnt {
@@ -453,7 +457,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				}
 				_, err := connParticipant[i].Write([]byte(info))
 				if err != nil {
-					println("unexpected error:" + err.Error())
+					fmt.Println("unexpected error:" + err.Error())
 				}
 			}
 			//lisong 20210609 11:11 第四阶段 commit/rollback ack
@@ -467,12 +471,12 @@ func heartBeatsCheck(c chan command, ot chan string) {
 					heartbeatsCnt[i]++
 					eraseconn(i)
 					alive--
-					println(err.Error())
+					fmt.Println(err.Error())
 				} else {
 					//只要有一个参与者结点返回数据，认为是成功的？可能需要额外检测
 					ackInfo = string(tmp[i][:ackInfoLen])
 				}
-				//println(heartbeatsCnt[i])
+				//fmt.Println(heartbeatsCnt[i])
 			}
 			if len(ackInfo) > 0 {
 				ot <- ackInfo
@@ -497,32 +501,25 @@ func heartBeatsCheck(c chan command, ot chan string) {
 	}
 }
 
+var cmdlist = make(chan command, 10000) //任务队列
+var status = make(chan string, 10000)   //用户操作是否成功
 func clientHandle(conn net.Conn) {
-	for _, i := range participantIPPortArr {
-		cn, err := net.Dial("tcp", i)
-		if err != nil {
-			fmt.Printf("link to %s failed: %s\n", i, err.Error())
-			continue
-		}
-		connParticipant = append(connParticipant, cn)
-		defer cn.Close()
-	}
+
 	if debugClientHandle {
-		fmt.Println("receive client", conn)
-		for _, i := range connParticipant {
-			fmt.Println("partcipant: ", i)
+		fmt.Println("receive conn from client", conn.LocalAddr(), " || ", conn.RemoteAddr())
+		for _, connParticipant_i := range connParticipant {
+			if connParticipant_i != nil {
+				fmt.Println("clientHandle() partcipant: localAddr ", connParticipant_i.LocalAddr(), "||remote addr ", connParticipant_i.RemoteAddr())
+			}
 		}
 	}
-	defer conn.Close()                   //函数/协程结束时关闭conn
-	cmdlist := make(chan command, 10000) //任务队列
-	status := make(chan string, 10000)   //用户操作是否成功
-	go heartBeatsCheck(cmdlist, status)  //开启心跳
+	defer conn.Close() //函数/协程结束时关闭conn
 	for {
 		cmdRESPArrByte := make([]byte, 1024)
 		n, err := conn.Read(cmdRESPArrByte)
 		if err != nil {
 			fmt.Println("read error:", err)
-			break
+
 		}
 		cmdRESPArrStr := string(cmdRESPArrByte[:n])
 		cmd := parseCmd(cmdRESPArrStr)
@@ -554,6 +551,7 @@ func main() {
 	if mode == "coordinator" {
 		//直接连到服务器
 		//监听端口，accept客户端的连接请求
+		go heartBeatsCheck(cmdlist, status) //开启心跳
 		for {
 			conn, err := l.Accept()
 			if err != nil {
@@ -561,7 +559,25 @@ func main() {
 				return
 			}
 			fmt.Println("client dail: ", conn)
+			for i, participantIPPortTmp := range participantIPPortArr {
+				cn, err := net.Dial("tcp", participantIPPortTmp)
+				if err != nil {
+					fmt.Printf("link to participant%s failed: %s\n", participantIPPortTmp, err.Error())
+					connParticipant[i] = nil
+					continue
+				}
+				connParticipant[i] = cn
+			}
 			clientHandle(conn)
+			for _, connParticipant_i := range connParticipant {
+				if connParticipant_i != nil {
+					connParticipant_i.Close()
+				}
+			}
+			if conn != nil {
+				conn.Close()
+			}
+			connParticipant = [3]net.Conn{}
 		}
 	} else if mode == "participant" {
 		//监听端口，accept客户端的连接请求
@@ -571,7 +587,10 @@ func main() {
 				fmt.Println("coordinatorIPPort accept error:", err)
 				return
 			}
-			go coordinatorHandle(conn) //处理coordinator的请求
+			coordinatorHandle(conn) //处理coordinator的请求
+			if conn != nil {
+				conn.Close()
+			}
 		}
 	}
 }
