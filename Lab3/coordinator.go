@@ -93,7 +93,10 @@ func heartBeatsCheck(c chan command, ot chan string) {
 	for {
 		<-tick.C //计时器到达
 		for _, cn := range connParticipant {
-			cn.SetDeadline(time.Now().Add(time.Microsecond * 20)) //20ms 超时
+			if cn == nil {
+				continue
+			}
+			cn.SetDeadline(time.Now().Add(time.Microsecond * 10000)) //20ms 超时
 		}
 		var cmd command
 		cmd.cmdType = heartBeats
