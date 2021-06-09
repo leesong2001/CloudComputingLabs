@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -43,10 +44,10 @@ func readConfig() {
 	设置coordinatorIPPort与participantIPPort[]的值
 	设置
 	*/
-	configPathInput = flag.String("config_path", "./src/coordinator.conf", "What is your configPath?")
+	configPathInput := flag.String("config_path", "./src/coordinator.conf", "What is your configPath?")
 	flag.Parse() //解析输入的参数
-	configPath=*configPathInput 
-	
+	configPath = *configPathInput
+
 	f, err := os.Open(configPath)
 	if err != nil {
 		print(err.Error())
@@ -101,11 +102,12 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			cmd := <-c
 			info = cmd2RESPArr(cmd)
 		}
-		//第一阶段发包
+		//prepare 第一阶段发包
 		for i, _ := range heartbeatsCnt {
 			if connParticipant[i] == nil {
 				continue
 			}
+			//给存活结点发送指令包或者是心跳空包
 			_, err := connParticipant[i].Write([]byte(info))
 			if err != nil {
 				eraseconn(i)
@@ -126,7 +128,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			}
 			println(heartbeatsCnt[i])
 		}
-		if cmd.cmdType != heartBeats { //set等操作，2阶段提交
+		if cmd.cmdType != heartBeats { //set get del 等操作，2阶段提交
 			acpcnt := 0
 			for i, _ := range heartbeatsCnt {
 				if connParticipant[i] == nil {
@@ -140,7 +142,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				ot <- FAIL
 				continue
 			}
-			if acpcnt == alive { //二阶段
+			if acpcnt == alive { //二阶段；准备ack阶段收到的赞同投票数与存活节点数一致
 				info = cmd2RESPArr(command{commit, []string{}, "", ""})
 			} else {
 				info = cmd2RESPArr(command{rollback, []string{}, "", ""})
@@ -154,17 +156,43 @@ func heartBeatsCheck(c chan command, ot chan string) {
 					println("unexpected error:" + err.Error())
 				}
 			}
-			if acpcnt == alive {
-				if cmd.cmdType == get {
-					ot <- cmd.value
-				} else if cmd.cmdType == set {
-					ot <- SUCCESS
-				} else if cmd.cmdType == del {
-					ot <- string(tmp[0])[1 : len(tmp[0])-2]
+			//lisong 20210609 11:11 第四阶段 commit/rollback ack
+			var ackInfo string
+			for i, _ := range heartbeatsCnt {
+				if connParticipant[i] == nil {
+					continue
 				}
+				ackInfoLen, err := connParticipant[i].Read(tmp[i])
+				if err != nil {
+					heartbeatsCnt[i]++
+					eraseconn(i)
+					alive--
+					println(err.Error())
+				} else {
+					//只要有一个参与者结点返回数据，认为是成功的？可能需要额外检测
+					ackInfo = string(tmp[i][:ackInfoLen])
+				}
+				println(heartbeatsCnt[i])
+			}
+			if len(ackInfo) > 0 {
+				ot <- ackInfo
 			} else {
 				ot <- FAIL
 			}
+			/*
+				if acpcnt == alive {
+					if cmd.cmdType == get {
+						ot <- cmd.value
+					} else if cmd.cmdType == set {
+						ot <- SUCCESS
+					} else if cmd.cmdType == del {
+						ot <- string(tmp[0])[1 : len(tmp[0])-2]
+					}
+				} else {
+					ot <- FAIL
+				}*/
+			//lisong 20210609 11:11第四阶段 commit/rollback ack
+
 		}
 	}
 }
@@ -209,6 +237,7 @@ func parseCmd(RESPArraysStr string) command {
 		heartBeatsPacket := command{cmdType: heartBeats}
 		return heartBeatsPacket
 	}
+
 	var i = 2
 	for {
 		if i > arraySize*2 {
@@ -238,6 +267,18 @@ func parseCmd(RESPArraysStr string) command {
 		cmd = delCmd
 	}
 	return cmd
+}
+func getCmdStr(cmdType int) string {
+	if cmdType == set {
+		return "SET"
+	}
+	if cmdType == get {
+		return "GET"
+	}
+	if cmdType == del {
+		return "DEL"
+	}
+	return ""
 }
 func cmd2RESPArr(cmd command) string {
 	//封装指令为RESP Arrays
@@ -301,8 +342,8 @@ func clientHandle(conn net.Conn) {
 		// }
 		cmdlist <- cmd
 		res := <-status
-		bk := str2RESPArr(res)
-		fmt.Println(res, bk)
+		bk := res
+		fmt.Println(bk)
 		conn.Write([]byte(bk))
 	}
 }

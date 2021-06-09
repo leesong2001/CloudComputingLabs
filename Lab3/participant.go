@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
+	"flag"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -26,8 +29,7 @@ coordinator_config:
 var mode = "coordinator"
 var configPath = "./src/coordinator.conf"
 var coordinatorIPPort = "175.10.105.61:8001"
-var participantIPPort = "192.168.66.201:8002"
-
+var participantIPPortArr []string
 
 func readConfig() {
 	/*读取配置文件
@@ -35,10 +37,10 @@ func readConfig() {
 	设置coordinatorIPPort与participantIPPort[]的值
 	设置
 	*/
-	configPathInput = flag.String("config_path", "./src/coordinator.conf", "What is your configPath?")
+	configPathInput := flag.String("config_path", "./src/coordinator.conf", "What is your configPath?")
 	flag.Parse() //解析输入的参数
-	configPath=*configPathInput 
-	
+	configPath = *configPathInput
+
 	f, err := os.Open(configPath)
 	if err != nil {
 		print(err.Error())
@@ -63,7 +65,6 @@ func readConfig() {
 		println(participantIPPort)
 	}
 }
-
 
 //心跳检测
 var heartbeatsCnt = [3]int{0, 0, 0}
@@ -287,8 +288,10 @@ func coordinatorHandle(conn net.Conn) {
 	}
 	//2.prepare ack阶段：响应准备阶段的请求，开始投票
 	//目前没有加锁，且由于是严格串行，不存在资源冲突，直接返回ACK:"prepare 1 taskid"
+	//为了适应CYH目前的代码 直接返回ACK:SUCCESS="+OK\r\n"
 	//conn.Write([]byte( str2RESPArr("prepare 1 "+cmd.taskid)  ) )
-	conn.Write([]byte(str2RESPArr("prepare 1")))
+	//conn.Write([]byte(str2RESPArr("prepare 1")))
+	conn.Write([]byte(str2RESPArr(SUCCESS)))
 	//3.commit or rollback
 	//4.commit or rollback ack
 	n, err = conn.Read(cmdRESPArrByte)
@@ -367,7 +370,7 @@ func main() {
 	database = make(map[string]string)
 	readConfig()
 	//绑定IP:Port
-	l, err := net.Listen("tcp", participantIPPort)
+	l, err := net.Listen("tcp", participantIPPortArr[0])
 	if err != nil {
 		fmt.Println("coordinator listen error:", err)
 		return
