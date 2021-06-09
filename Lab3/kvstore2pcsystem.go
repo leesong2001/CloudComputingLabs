@@ -104,12 +104,12 @@ func parseCmd(RESPArraysStr string) command {
 
 	RESPArraysTmp := strings.Split(RESPArraysStr, "\r\n")
 	RESPArraysTmp = RESPArraysTmp[:len(RESPArraysTmp)-1]
-	if debugClientHandle {
-		print("parseCmd() debug info")
-		for i, ele := range RESPArraysTmp {
-			fmt.Println(i, ":", ele)
-		}
-	}
+	// if debugClientHandle {
+	// 	print("parseCmd() debug info")
+	// 	for i, ele := range RESPArraysTmp {
+	// 		fmt.Println(i, ":", ele)
+	// 	}
+	// }
 	var RESPArrays []string
 	arraySize, _ := strconv.Atoi(RESPArraysTmp[0][1:])
 	if arraySize == 0 {
@@ -265,13 +265,13 @@ func coordinatorHandle(conn net.Conn) {
 	for {
 		n, err := conn.Read(cmdRESPArrByte)
 		if err != nil {
-			fmt.Println("read error:", err)
+			fmt.Println("268 read error:", err)
 			return
 		}
 		cmdRESPArrStr := string(cmdRESPArrByte[:n])
-		if debugClientHandle {
-			print(cmdRESPArrStr)
-		}
+		// if debugClientHandle {
+		// 	print(cmdRESPArrStr)
+		// }
 		cmd := parseCmd(cmdRESPArrStr)
 		/*
 			1.心跳包
@@ -320,7 +320,7 @@ func coordinatorHandle(conn net.Conn) {
 		//4.commit or rollback ack
 		n, err = conn.Read(cmdRESPArrByte)
 		if err != nil && debugClientHandle {
-			fmt.Println("read error:", err)
+			fmt.Println("323 read error:", err)
 			return
 		}
 		cmt_rbkRESPArrStr := string(cmdRESPArrByte[:n])
@@ -355,6 +355,10 @@ func coordinatorHandle(conn net.Conn) {
 				}
 				conn.Write([]byte(":" + strconv.Itoa(delNum) + "\r\n"))
 			}
+			fmt.Println(participantIPPortArr[0] + ":  ")
+			for i, j := range database {
+				fmt.Println(i, j)
+			}
 		}
 		if cmt_rbkType == rollback {
 			//什么也不做
@@ -373,7 +377,7 @@ func eraseconn(p int) {
 
 // c为用户输入，ot为反馈信息
 func heartBeatsCheck(c chan command, ot chan string) {
-	tick := time.NewTicker(time.Millisecond * 50) //30ms
+	tick := time.NewTicker(time.Millisecond * 100) //30ms
 	tmp := make([][]byte, len(heartbeatsCnt))
 	var tmpsz [3]int
 	for i := 0; i < len(heartbeatsCnt); i++ {
@@ -394,6 +398,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 		if len(c) > 0 {
 			cmd = <-c
 			info = cmd2RESPArr(cmd)
+			fmt.Println("info=" + info)
 		}
 		//prepare 第一阶段发包
 		for i, _ := range heartbeatsCnt {
@@ -414,9 +419,9 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			}
 			sz, err := connParticipant[i].Read(tmp[i])
 			tmpsz[i] = sz
-			if debugClientHandle {
-				fmt.Println("i:" + strconv.Itoa(i) + "  " + string(tmp[i]))
-			}
+			// if debugClientHandle {
+			// 	fmt.Println("i:" + strconv.Itoa(i) + "  " + string(tmp[i]))
+			// }
 			if err != nil {
 				heartbeatsCnt[i]++
 				eraseconn(i)
@@ -425,10 +430,9 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			}
 			//fmt.Println(heartbeatsCnt[i])
 		}
-		fmt.Println("heartBeatsCheck() cmdType: ", cmd.cmdType, " ", getCmdStr(cmd.cmdType))
 		if cmd.cmdType != heartBeats { //set get del 等操作，2阶段提交
 			if debugClientHandle {
-				fmt.Println("debug: " + strconv.Itoa(cmd.cmdType))
+				fmt.Println("cmdType: " + getCmdStr(cmd.cmdType))
 			}
 			acpcnt := 0
 			for i, _ := range heartbeatsCnt {
@@ -436,7 +440,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 					continue
 				}
 				if debugClientHandle {
-					fmt.Println("142: " + string(tmp[i][:tmpsz[i]]))
+					fmt.Println("445: " + string(tmp[i][:tmpsz[i]]))
 				}
 				if string(tmp[i][:tmpsz[i]]) == SUCCESS {
 					acpcnt++
@@ -504,7 +508,6 @@ func heartBeatsCheck(c chan command, ot chan string) {
 var cmdlist = make(chan command, 10000) //任务队列
 var status = make(chan string, 10000)   //用户操作是否成功
 func clientHandle(conn net.Conn) {
-
 	if debugClientHandle {
 		fmt.Println("receive conn from client", conn.LocalAddr(), " || ", conn.RemoteAddr())
 		for _, connParticipant_i := range connParticipant {
@@ -518,8 +521,8 @@ func clientHandle(conn net.Conn) {
 		cmdRESPArrByte := make([]byte, 1024)
 		n, err := conn.Read(cmdRESPArrByte)
 		if err != nil {
-			fmt.Println("read error:", err)
-
+			fmt.Println("532 read error:", err)
+			return
 		}
 		cmdRESPArrStr := string(cmdRESPArrByte[:n])
 		cmd := parseCmd(cmdRESPArrStr)
@@ -551,6 +554,17 @@ func main() {
 	if mode == "coordinator" {
 		//直接连到服务器
 		//监听端口，accept客户端的连接请求
+		time.Sleep(time.Second * 1)
+		for i, participantIPPortTmp := range participantIPPortArr {
+			cn, err := net.Dial("tcp", participantIPPortTmp)
+			if err != nil {
+				fmt.Printf("link to participant%s failed: %s\n", participantIPPortTmp, err.Error())
+				connParticipant[i] = nil
+				continue
+			}
+			connParticipant[i] = cn
+			defer connParticipant[i].Close()
+		}
 		go heartBeatsCheck(cmdlist, status) //开启心跳
 		for {
 			conn, err := l.Accept()
@@ -559,25 +573,8 @@ func main() {
 				return
 			}
 			fmt.Println("client dail: ", conn)
-			for i, participantIPPortTmp := range participantIPPortArr {
-				cn, err := net.Dial("tcp", participantIPPortTmp)
-				if err != nil {
-					fmt.Printf("link to participant%s failed: %s\n", participantIPPortTmp, err.Error())
-					connParticipant[i] = nil
-					continue
-				}
-				connParticipant[i] = cn
-			}
+
 			clientHandle(conn)
-			for _, connParticipant_i := range connParticipant {
-				if connParticipant_i != nil {
-					connParticipant_i.Close()
-				}
-			}
-			if conn != nil {
-				conn.Close()
-			}
-			connParticipant = [3]net.Conn{}
 		}
 	} else if mode == "participant" {
 		//监听端口，accept客户端的连接请求
