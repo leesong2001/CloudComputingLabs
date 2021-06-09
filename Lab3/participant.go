@@ -28,17 +28,42 @@ var configPath = "./src/coordinator.conf"
 var coordinatorIPPort = "175.10.105.61:8001"
 var participantIPPort = "192.168.66.201:8002"
 
+
 func readConfig() {
 	/*读取配置文件
 	设置mode的值，运行在协同者或是参与者模式
 	设置coordinatorIPPort与participantIPPort[]的值
 	设置
 	*/
+	configPathInput = flag.String("config_path", "./src/coordinator.conf", "What is your configPath?")
+	flag.Parse() //解析输入的参数
+	configPath=*configPathInput 
+	
+	f, err := os.Open(configPath)
+	if err != nil {
+		print(err.Error())
+		return
+	}
+	defer f.Close()
+	input := bufio.NewScanner(f)
+	for input.Scan() {
+		st := input.Text()
+		if len(st) >= 4 && st[:4] == "mode" {
+			mode = st[5:]
+		} else if len(st) >= 16 && st[:16] == "coordinator_info" {
+			coordinatorIPPort = st[17:]
+		} else if len(st) >= 16 && st[:16] == "participant_info" {
+			participantIPPortArr = append(participantIPPortArr, st[17:])
+		}
+	}
 	println(mode)
 	println(configPath)
 	println(coordinatorIPPort)
-	println(participantIPPort)
+	for _, participantIPPort := range participantIPPortArr {
+		println(participantIPPort)
+	}
 }
+
 
 //心跳检测
 var heartbeatsCnt = [3]int{0, 0, 0}

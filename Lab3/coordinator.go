@@ -43,6 +43,10 @@ func readConfig() {
 	设置coordinatorIPPort与participantIPPort[]的值
 	设置
 	*/
+	configPathInput = flag.String("config_path", "./src/coordinator.conf", "What is your configPath?")
+	flag.Parse() //解析输入的参数
+	configPath=*configPathInput 
+	
 	f, err := os.Open(configPath)
 	if err != nil {
 		print(err.Error())
