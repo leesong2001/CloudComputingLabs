@@ -14,15 +14,15 @@ func eraseconn(p int) {
 
 var cmdlist = make(chan command, 10000) //任务队列
 var status = make(chan string, 10000)   //用户操作是否成功
+var alive = 3                           //活着的participants
 // c为用户输入，ot为反馈信息
 func heartBeatsCheck(c chan command, ot chan string) {
-	tick := time.NewTicker(time.Millisecond * 100) //30ms
+	tick := time.NewTicker(time.Millisecond * 100) //100ms一次心跳
 	tmp := make([][]byte, len(heartbeatsCnt))
 	var tmpsz [3]int
 	for i := 0; i < len(heartbeatsCnt); i++ {
 		tmp[i] = make([]byte, 1024)
 	}
-	alive := len(heartbeatsCnt) //当前活着的participants
 	for {
 		<-tick.C //计时器到达
 		for _, cn := range connParticipant {
@@ -167,5 +167,32 @@ func clientHandle(conn net.Conn) {
 		bk := res
 		fmt.Println("bk:" + bk)
 		conn.Write([]byte(bk))
+	}
+}
+
+func start_coordinator(l net.Listener) {
+	//直接连到服务器
+	//监听端口，accept客户端的连接请求
+	time.Sleep(time.Second * 1)
+	for i, participantIPPortTmp := range participantIPPortArr {
+		cn, err := net.Dial("tcp", participantIPPortTmp)
+		if err != nil {
+			fmt.Printf("link to participant%s failed: %s\n", participantIPPortTmp, err.Error())
+			connParticipant[i] = nil
+			continue
+		}
+		connParticipant[i] = cn
+		defer connParticipant[i].Close()
+	}
+	go heartBeatsCheck(cmdlist, status) //开启心跳
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("coordinatorIPPort accept error:", err)
+			return
+		}
+		fmt.Println("client dail: ", conn)
+
+		clientHandle(conn)
 	}
 }
