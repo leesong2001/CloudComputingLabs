@@ -149,7 +149,9 @@ func parseCmd(RESPArraysStr string) command {
 	}
 	if cmdTypeStr == getCmdStr(syndata) {
 		/*RESP Arrays 格式 ：req: syndata IP:Port
-		ack: +OK
+		req ack:  syndata ACK
+		fin: syndata FIN
+		fin ack: syndata FIN_ACK
 		*/
 		syndataCmd := command{cmdType: syndata}
 		syndataCmd.value = RESPArrays[1] // IP:Port-->RESPArrays[1]

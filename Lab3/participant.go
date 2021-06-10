@@ -7,7 +7,16 @@ import (
 )
 
 //两阶段提交
-
+func synData() {
+	/*
+		协调者--参与者
+	*/
+}
+func synGetSet() {
+	/*
+		参与者-参与者
+	*/
+}
 func coordinatorHandle(conn net.Conn) {
 	if debugClientHandle {
 		fmt.Println("receive conn from coordinator ", conn.LocalAddr(), " || ", conn.RemoteAddr())
@@ -39,6 +48,10 @@ func coordinatorHandle(conn net.Conn) {
 			//响应心跳包
 			conn.Write([]byte(HeartBeatsResps))
 			continue
+		}
+		if cmdType == syndata {
+			//协调者要求参与者与目标参与者进行数据同步
+
 		}
 		var valueArr []string
 		var isExistArr []bool
