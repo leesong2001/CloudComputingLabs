@@ -78,7 +78,7 @@ func data_recover(to, p int) {
 func init_participant() {
 	fmt.Println("Start init participants...")
 	cmd := command{cmdType: synTargetGet}
-	var id [3]uint32
+	var id [3]uint64
 	recv := make([]byte, 1024)
 	info := cmd2RESPArr(cmd)
 	p := 0
@@ -93,17 +93,19 @@ func init_participant() {
 			eraseconn(i)
 			return
 		}
-		num, _ := strconv.ParseUint(string(recv[1:n-2]), 10, 32)
-		id[i] = uint32(num)
+		num, _ := strconv.ParseUint(parseCmd(string(recv[:n])).value, 10, 64)
+		id[i] = num
 		if id[i] > id[p] {
 			p = i
 		}
 	}
 	for i, cn := range connParticipant {
+		fmt.Println(participantIPPortArr[i], ":id=", id[i])
 		if cn == nil {
 			continue
 		}
 		if id[i] != id[p] {
+			alive--
 			data_recover(i, p)
 		}
 	}
@@ -111,6 +113,7 @@ func init_participant() {
 
 //删除一个participant，死亡
 func eraseconn(p int) {
+	fmt.Println(participantIPPortArr[p], "has dead!!!!!! dead info**")
 	connParticipant[p] = nil
 	isalive[p] = false
 	alive--
@@ -202,7 +205,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				continue
 			}
 			fmt.Println("alive:", alive, "acpcnt:", acpcnt)
-			if acpcnt == alive { //二阶段；准备ack阶段收到的赞同投票数与存活节点数一致
+			if acpcnt != 0 { //二阶段；准备ack阶段收到的赞同投票数与存活节点数一致
 				info = str2RESPArr(getCmdStr(commit))
 			} else {
 				info = str2RESPArr(getCmdStr(rollback))
