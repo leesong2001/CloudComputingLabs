@@ -42,13 +42,16 @@ const HeartBeatsResps = "*0\r\n"
 	del key_{0} key_{1}... key_{n}
 */
 const (
-	set        = 0
-	get        = 1
-	del        = 2
-	heartBeats = 3
-	prepare    = 4
-	commit     = 5
-	rollback   = 6
+	set          = 0
+	get          = 1
+	del          = 2
+	heartBeats   = 3
+	prepare      = 4
+	commit       = 5
+	rollback     = 6
+	syndata      = 7 //协同者->参与者，让参与者与最新参与者同步数据
+	synget       = 8 //参与者与参与者之间同步数据
+	synTargetGet = 9 //协调者广播所有活的参与者结点,获取最新的参与者IP信息
 )
 const SUCCESS = "+OK\r\n"
 const FAIL = "-ERROR\r\n"
@@ -118,31 +121,65 @@ func parseCmd(RESPArraysStr string) command {
 	}
 	cmd := command{}
 	cmdTypeStr := RESPArrays[0]
-	if cmdTypeStr == "SET" {
+	if cmdTypeStr == getCmdStr(set) {
 		setCmd := command{cmdType: set}
 		setCmd.key = append(setCmd.key, RESPArrays[1])
 		setCmd.value = RESPArrays[2]
 		cmd = setCmd
 	}
-	if cmdTypeStr == "GET" {
+	if cmdTypeStr == getCmdStr(get) {
 		getCmd := command{cmdType: get}
 		getCmd.key = append(getCmd.key, RESPArrays[1])
 		cmd = getCmd
 	}
-	if cmdTypeStr == "DEL" {
+	if cmdTypeStr == getCmdStr(del) {
 		delCmd := command{cmdType: del}
 		for i = 1; i < arraySize; i++ {
 			delCmd.key = append(delCmd.key, RESPArrays[i])
 		}
 		cmd = delCmd
 	}
-	if cmdTypeStr == "commit" {
+	if cmdTypeStr == getCmdStr(commit) {
 		comCmd := command{cmdType: commit}
 		cmd = comCmd
 	}
-	if cmdTypeStr == "rollback" {
+	if cmdTypeStr == getCmdStr(rollback) {
 		rollCmd := command{cmdType: rollback}
 		cmd = rollCmd
+	}
+	if cmdTypeStr == getCmdStr(syndata) {
+		/*RESP Arrays 格式 ：req: syndata IP:Port
+		ack: +OK
+		*/
+		syndataCmd := command{cmdType: syndata}
+		syndataCmd.value = RESPArrays[1] // IP:Port-->RESPArrays[1]
+		cmd = syndataCmd
+	}
+	if cmdTypeStr == getCmdStr(synget) {
+		/*RESP Arrays 格式 ：req: synget
+					    ack: synget key_1 key_2 ..key_n
+		1.待同步参与者向目标参与者请求同步，req: synget
+		2.目标参与者回复待同步参与者当前的key[]，ack: synget key_1 key_2 ..key_n
+		3.loop:
+			3.1 待同步参与者向目标参与者请求数据：使用之前的标准get格式  get key
+			3.2 目标参与者回复待同步参与者所请求的key：使用之前的标准set格式  set key val
+		*/
+		syngetCmd := command{cmdType: synget}
+		for i = 1; i < arraySize; i++ {
+			syngetCmd.key = append(syngetCmd.key, RESPArrays[i])
+		}
+		cmd = syngetCmd
+	}
+	if cmdTypeStr == getCmdStr(synTargetGet) {
+		/*
+			RESP Arrays 格式 ：req: synTargetGet
+							  ack: synTargetGet cntFlag(cntFlag是参与者最近一次执行命令后的计数，每次完成一次两阶段提交计数值+1)
+		*/
+		synTargetGetCmd := command{cmdType: synTargetGet}
+		if len(RESPArrays[1]) > 0 {
+			synTargetGetCmd.value = RESPArrays[1] //cntFlag-->RESPArrays[1]
+		}
+		cmd = synTargetGetCmd
 	}
 	//大字符串读取？
 	/*var RESPArray []string //字符串序列 e.g. []arr={set,key,val}
@@ -192,6 +229,15 @@ func getCmdStr(cmdType int) string {
 	}
 	if cmdType == heartBeats {
 		return "heartBeats"
+	}
+	if cmdType == syndata {
+		return "syndata"
+	}
+	if cmdType == synget {
+		return "synget"
+	}
+	if cmdType == synTargetGet {
+		return "synTargetGet"
 	}
 	return ""
 }
