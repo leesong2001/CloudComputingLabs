@@ -91,6 +91,7 @@ func init_participant() {
 		if err != nil {
 			fmt.Println("What? in init_participant, read error " + err.Error())
 			eraseconn(i)
+			return
 		}
 		num, _ := strconv.ParseUint(string(recv[1:n-2]), 10, 32)
 		id[i] = uint32(num)
@@ -285,7 +286,7 @@ func clientHandle(conn net.Conn) {
 func start_coordinator(l net.Listener) {
 	//直接连到服务器
 	//监听端口，accept客户端的连接请求
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Second * 3)
 	alive = len(participantIPPortArr)
 	for i, participantIPPortTmp := range participantIPPortArr {
 		cn, err := net.Dial("tcp", participantIPPortTmp)

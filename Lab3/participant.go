@@ -126,7 +126,7 @@ func coordinatorHandle(conn net.Conn) {
 			//2.1 目标参与者回复待同步参与者某个key：使用之前的标准set格式  set key val
 			for k, value := range database {
 				setCmd := command{cmdType: set, value: value}
-				append(setCmd.key, k)
+				setCmd.key = append(setCmd.key, k)
 				conn.Write([]byte(cmd2RESPArr(setCmd)))
 				//2.2 待同步参与者向目标参与者回复ACK：+OK
 				setCmdRespByte := make([]byte, 1024)
