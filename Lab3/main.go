@@ -6,6 +6,7 @@ import (
 )
 
 func main() {
+	finCnt2PC = 0
 	database = make(map[string]string)
 	readConfig()
 	var localIPPort string
@@ -32,7 +33,10 @@ func main() {
 				fmt.Println("coordinatorIPPort accept error:", err)
 				return
 			}
-			coordinatorHandle(conn) //处理coordinator的请求
+			go coordinatorHandle(conn)
+			//处理coordinator的请求
+			//现在还需要为其他参与者进行恢复 添加go 关键字
+
 			if conn != nil {
 				conn.Close()
 			}

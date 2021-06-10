@@ -7,16 +7,41 @@ import (
 )
 
 //两阶段提交
-func synData() {
+func synData(IP_Port string) {
 	/*
-		协调者--参与者
+		协调者--参与者 要求同步恢复
+		参与者-参与者 请求同步
 	*/
-}
-func synGetSet() {
+	conn, err := net.Dial("tcp", IP_Port)
+	if err != nil {
+		fmt.Printf("link to targetParticipant%s failed: %s\n", IP_Port, err.Error())
+		return
+	}
+	defer conn.Close()
+	//1.待同步参与者向目标参与者请求同步，req: synget
+	conn.Write([]byte(cmd2RESPArr(command{cmdType: synget})))
+
 	/*
-		参与者-参与者
+		2.loop:
+			2.1 目标参与者回复待同步参与者某个key：使用之前的标准set格式  set key val
+			2.2 待同步参与者向目标参与者回复ACK：+OK
 	*/
+	database = make(map[string]string)
+	for {
+		synSetCmdByte := make([]byte, 1024)
+		length, e := conn.Read(synSetCmdByte)
+		if e != nil {
+			fmt.Println("read error:", err)
+			return
+		}
+		synSetCmdStr := string(synSetCmdByte[:length])
+		synSetCmd := parseCmd(synSetCmdStr)
+		database[synSetCmd.key[0]] = synSetCmd.value
+		//2.2 待同步参与者向目标参与者回复ACK：+OK
+		conn.Write([]byte(SUCCESS))
+	}
 }
+
 func coordinatorHandle(conn net.Conn) {
 	if debugClientHandle {
 		fmt.Println("receive conn from coordinator ", conn.LocalAddr(), " || ", conn.RemoteAddr())
@@ -42,6 +67,9 @@ func coordinatorHandle(conn net.Conn) {
 			2.set key val
 			3.get key
 			4.del key[]
+			5.syndata
+			6.synget
+			7.synTargetGet
 		*/
 		cmdType := cmd.cmdType
 		if cmdType == heartBeats {
@@ -51,8 +79,81 @@ func coordinatorHandle(conn net.Conn) {
 		}
 		if cmdType == syndata {
 			//协调者要求参与者与目标参与者进行数据同步
+			/*RESP Arrays 格式 ：req: syndata IP:Port
+			req ack:  syndata ACK
+			fin: syndata FIN
+			fin ack: syndata FIN_ACK
+			*/
+			IP_Port := cmd.value
+			syndataACK := command{cmdType: syndata, value: "ACK"}
+			conn.Write([]byte(cmd2RESPArr(syndataACK)))
+			synData(IP_Port)
+			//fin: syndata FIN
+			conn.Write([]byte(cmd2RESPArr(command{cmdType: syndata, value: "FIN"})))
+			//fin ack: syndata FIN_ACK
+			FIN_ACKByte := make([]byte, 1024)
+			length, e := conn.Read(FIN_ACKByte)
+			if e != nil {
+				fmt.Println("73 read error:", err)
+				return
+			}
+			FIN_ACKStr := string(FIN_ACKByte[:length])
+			FIN_ACK := parseCmd(FIN_ACKStr).value
+			if FIN_ACK == "FIN_ACK" {
+			}
 
+			continue
 		}
+		if cmdType == synget {
+			//当前结点作为目标结点，响应其他待同步的参与者的同步请求
+			/*弃用
+			RESP Arrays 格式 ：req: synget
+						    ack: synget key_1 key_2 ..key_n
+			1.待同步参与者向目标参与者请求同步，req: synget
+			2.目标参与者回复待同步参与者当前的key[]，ack: synget key_1 key_2 ..key_n
+			3.loop:
+				3.1 待同步参与者向目标参与者请求数据：使用之前的标准get格式  get key
+				3.2 目标参与者回复待同步参与者所请求的key：使用之前的标准set格式  set key val
+			*/
+
+			//现行版本
+			/*
+				1.待同步参与者向目标参与者请求同步，req: synget
+				2.loop:
+					2.1 目标参与者回复待同步参与者某个key：使用之前的标准set格式  set key val
+					2.2 待同步参与者向目标参与者回复ACK：+OK
+			*/
+			//2.1 目标参与者回复待同步参与者某个key：使用之前的标准set格式  set key val
+			for k, value := range database {
+				setCmd := command{cmdType: set, value: value}
+				append(setCmd.key, k)
+				conn.Write([]byte(cmd2RESPArr(setCmd)))
+				//2.2 待同步参与者向目标参与者回复ACK：+OK
+				setCmdRespByte := make([]byte, 1024)
+				setCmdRespByteLen, e := conn.Read(setCmdRespByte)
+				if e != nil {
+					fmt.Println("read error:", err)
+					break
+				}
+				setCmdResp := string(setCmdRespByte[:setCmdRespByteLen])
+				if setCmdResp == SUCCESS {
+				}
+			}
+			break //同步完成连接断开
+		}
+		if cmdType == synTargetGet {
+			/*
+				RESP Arrays 格式 ：req: synTargetGet
+								  ack: synTargetGet cntFlag(cntFlag是参与者最近一次执行命令后的计数，每次完成一次两阶段提交计数值+1)
+			*/
+
+			//直接返回 最新执行次数 计数值
+			synTargetGetResp := command{cmdType: synTargetGet, value: strconv.FormatUint(finCnt2PC, 10)}
+			conn.Write([]byte(cmd2RESPArr(synTargetGetResp)))
+			continue
+		}
+
+		//set del get 两阶段的数据缓存
 		var valueArr []string
 		var isExistArr []bool
 		if cmdType == set {
@@ -127,10 +228,13 @@ func coordinatorHandle(conn net.Conn) {
 			for i, j := range database {
 				fmt.Println(i, j)
 			}
+			finCnt2PC++ //最新状态计数变量++ 成功执行一次2PC
 		}
 		if cmt_rbkType == rollback {
 			//什么也不做
 			conn.Write([]byte(SUCCESS))
+			finCnt2PC++ //最新状态计数变量++  成功执行一次2PC
 		}
+
 	}
 }

@@ -35,6 +35,8 @@ var heartbeatsCnt = [3]int{0, 0, 0}
 
 const HeartBeatsResps = "*0\r\n"
 
+var finCnt2PC uint64
+
 //指令的解析与封装
 /*
 	set key val
