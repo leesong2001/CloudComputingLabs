@@ -205,7 +205,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				continue
 			}
 			fmt.Println("alive:", alive, "acpcnt:", acpcnt)
-			if acpcnt != 0 { //二阶段；准备ack阶段收到的赞同投票数与存活节点数一致
+			if acpcnt == alive { //二阶段；准备ack阶段收到的赞同投票数与存活节点数一致
 				info = str2RESPArr(getCmdStr(commit))
 			} else {
 				info = str2RESPArr(getCmdStr(rollback))
