@@ -103,9 +103,7 @@ func init_participant() {
 		if cn == nil {
 			continue
 		}
-		if id[i] == id[p] {
-			cn.Write([]byte(SUCCESS))
-		} else {
+		if id[i] != id[p] {
 			data_recover(i, p)
 		}
 	}
@@ -193,7 +191,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 					continue
 				}
 				if debugClientHandle {
-					fmt.Println("445: " + string(tmp[i][:tmpsz[i]]))
+					fmt.Println("recv from par: " + string(tmp[i][:tmpsz[i]]))
 				}
 				if string(tmp[i][:tmpsz[i]]) == SUCCESS {
 					acpcnt++
@@ -203,6 +201,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				ot <- FAIL
 				continue
 			}
+			fmt.Println("alive:", alive, "acpcnt:", acpcnt)
 			if acpcnt == alive { //二阶段；准备ack阶段收到的赞同投票数与存活节点数一致
 				info = str2RESPArr(getCmdStr(commit))
 			} else {
@@ -286,7 +285,7 @@ func clientHandle(conn net.Conn) {
 func start_coordinator(l net.Listener) {
 	//直接连到服务器
 	//监听端口，accept客户端的连接请求
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 1)
 	alive = len(participantIPPortArr)
 	for i, participantIPPortTmp := range participantIPPortArr {
 		cn, err := net.Dial("tcp", participantIPPortTmp)
