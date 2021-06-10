@@ -3,18 +3,132 @@ package main
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 )
 
-func eraseconn(p int) {
-	connParticipant[p] = nil
-	//todo
-	//打开一个时钟，间隔连接
-}
-
 var cmdlist = make(chan command, 10000) //任务队列
 var status = make(chan string, 10000)   //用户操作是否成功
-var alive = 3                           //活着的participants
+var alive int                           //活着的participants个数
+var isalive [10]bool                    //true only if p is the latest version
+
+//不断连接p
+func try_dail(p int) {
+	for {
+		time.Sleep(time.Second * 1) //每隔1s拨号一次
+		cn, err := net.Dial("tcp", participantIPPortArr[p])
+		if err != nil {
+			continue
+		}
+		connParticipant[p] = cn
+		break
+	}
+	for i, _ := range participantIPPortArr {
+		if isalive[i] {
+			data_recover(p, i)
+			break
+		}
+	}
+}
+
+/*
+总共4个阶段的恢复
+1. synData IP:PORT 发送给p
+2. 从p接收 synData ACK
+3. 从p接收 synData FIN
+4. synData FIN_ACK 发送给p
+*/
+func data_recover(to, p int) {
+	cn := connParticipant[to]
+	cmd := command{cmdType: syndata, value: participantIPPortArr[p]}
+	info := cmd2RESPArr(cmd)
+	fmt.Println("!!!important: ", cn.RemoteAddr(), " recovering, sync with "+info)
+	cn.Write([]byte(info))
+	recv := make([]byte, 1024)
+	n, err := cn.Read(recv)
+	if err != nil {
+		fmt.Println("WTF? recovering read error :", err.Error())
+		eraseconn(to)
+		return
+	}
+	cmd = parseCmd(string(recv[:n]))
+	if cmd.cmdType != syndata || cmd.value != "ACK" {
+		fmt.Println("UNKNOW ERROR in recovering, expect syndata ACK, found ", getCmdStr(cmd.cmdType)+" "+cmd.value)
+		eraseconn(to)
+		return
+	}
+	n, err = cn.Read(recv)
+	if err != nil {
+		fmt.Println("WTF? recovering read error in step 2:", err.Error())
+		eraseconn(to)
+		return
+	}
+	cmd = parseCmd(string(recv[:n]))
+	if cmd.cmdType != syndata || cmd.value != "FIN" {
+		fmt.Println("UNKNOW ERROR in recovering, expect syndata FIN, found ", getCmdStr(cmd.cmdType)+" "+cmd.value)
+		eraseconn(to)
+		return
+	}
+	cmd = command{cmdType: syndata, value: "FIN_ACK"}
+	cn.Write([]byte(cmd2RESPArr(cmd)))
+	recoverOK(to)
+}
+
+//初次启动的同步
+func init_participant() {
+	fmt.Println("Start init participants...")
+	cmd := command{cmdType: synTargetGet}
+	var id [3]uint32
+	recv := make([]byte, 1024)
+	info := cmd2RESPArr(cmd)
+	p := 0
+	for i, cn := range connParticipant {
+		if cn == nil {
+			continue
+		}
+		cn.Write([]byte(info))
+		n, err := cn.Read(recv)
+		if err != nil {
+			fmt.Println("What? in init_participant, read error " + err.Error())
+			eraseconn(i)
+		}
+		num, _ := strconv.ParseUint(string(recv[1:n-2]), 10, 32)
+		id[i] = uint32(num)
+		if id[i] > id[p] {
+			p = i
+		}
+	}
+	for i, cn := range connParticipant {
+		if cn == nil {
+			continue
+		}
+		if id[i] == id[p] {
+			cn.Write([]byte(SUCCESS))
+		} else {
+			data_recover(i, p)
+		}
+	}
+}
+
+//删除一个participant，死亡
+func eraseconn(p int) {
+	connParticipant[p] = nil
+	isalive[p] = false
+	alive--
+	if alive < 0 {
+		fmt.Println("!!!important: eraseconn error, find alive < 0")
+	}
+	//todo
+	//打开一个时钟，间隔连接
+	go try_dail(p)
+}
+
+//一个participant恢复连接，并且完成同步
+func recoverOK(p int) {
+	isalive[p] = true
+	alive++
+}
+
 // c为用户输入，ot为反馈信息
 func heartBeatsCheck(c chan command, ot chan string) {
 	tick := time.NewTicker(time.Millisecond * 100) //100ms一次心跳
@@ -25,6 +139,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 	}
 	for {
 		<-tick.C //计时器到达
+		//现在不知道有啥用
 		for _, cn := range connParticipant {
 			if cn == nil {
 				continue
@@ -33,7 +148,7 @@ func heartBeatsCheck(c chan command, ot chan string) {
 		}
 		var cmd command
 		cmd.cmdType = heartBeats
-		info := "*0\r\n"
+		info := HeartBeatsResps
 		if len(c) > 0 {
 			cmd = <-c
 			info = cmd2RESPArr(cmd)
@@ -48,7 +163,6 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			_, err := connParticipant[i].Write([]byte(info))
 			if err != nil {
 				eraseconn(i)
-				alive--
 				fmt.Println("heartBeatsCheck() prepare Write: ", err.Error())
 			}
 		}
@@ -64,7 +178,6 @@ func heartBeatsCheck(c chan command, ot chan string) {
 			if err != nil {
 				heartbeatsCnt[i]++
 				eraseconn(i)
-				alive--
 				fmt.Println(err.Error())
 			}
 			//fmt.Println(heartbeatsCnt[i])
@@ -113,7 +226,6 @@ func heartBeatsCheck(c chan command, ot chan string) {
 				if err != nil {
 					heartbeatsCnt[i]++
 					eraseconn(i)
-					alive--
 					fmt.Println(err.Error())
 				} else {
 					//只要有一个参与者结点返回数据，认为是成功的？可能需要额外检测
@@ -174,16 +286,18 @@ func start_coordinator(l net.Listener) {
 	//直接连到服务器
 	//监听端口，accept客户端的连接请求
 	time.Sleep(time.Second * 1)
+	alive = len(participantIPPortArr)
 	for i, participantIPPortTmp := range participantIPPortArr {
 		cn, err := net.Dial("tcp", participantIPPortTmp)
 		if err != nil {
 			fmt.Printf("link to participant%s failed: %s\n", participantIPPortTmp, err.Error())
-			connParticipant[i] = nil
+			eraseconn(i)
 			continue
 		}
 		connParticipant[i] = cn
 		defer connParticipant[i].Close()
 	}
+	init_participant()
 	go heartBeatsCheck(cmdlist, status) //开启心跳
 	for {
 		conn, err := l.Accept()
@@ -192,7 +306,6 @@ func start_coordinator(l net.Listener) {
 			return
 		}
 		fmt.Println("client dail: ", conn)
-
 		clientHandle(conn)
 	}
 }
