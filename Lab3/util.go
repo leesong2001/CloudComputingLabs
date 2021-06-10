@@ -113,6 +113,7 @@ func parseCmd(RESPArraysStr string) command {
 		heartBeatsPacket := command{cmdType: heartBeats}
 		return heartBeatsPacket
 	}
+	//arraySize>=1
 	var i = 2
 	for {
 		if i > arraySize*2 {
@@ -160,18 +161,13 @@ func parseCmd(RESPArraysStr string) command {
 		cmd = syndataCmd
 	}
 	if cmdTypeStr == getCmdStr(synget) {
-		/*RESP Arrays 格式 ：req: synget
-					    ack: synget key_1 key_2 ..key_n
+		/*RESP Arrays 格式 ：
 		1.待同步参与者向目标参与者请求同步，req: synget
-		2.目标参与者回复待同步参与者当前的key[]，ack: synget key_1 key_2 ..key_n
-		3.loop:
-			3.1 待同步参与者向目标参与者请求数据：使用之前的标准get格式  get key
-			3.2 目标参与者回复待同步参与者所请求的key：使用之前的标准set格式  set key val
+				2.loop:
+					2.1 目标参与者回复待同步参与者某个key：使用之前的标准set格式  set key val
+					2.2 待同步参与者向目标参与者回复ACK：+OK
 		*/
 		syngetCmd := command{cmdType: synget}
-		for i = 1; i < arraySize; i++ {
-			syngetCmd.key = append(syngetCmd.key, RESPArrays[i])
-		}
 		cmd = syngetCmd
 	}
 	if cmdTypeStr == getCmdStr(synTargetGet) {
@@ -180,7 +176,7 @@ func parseCmd(RESPArraysStr string) command {
 							  ack: synTargetGet cntFlag(cntFlag是参与者最近一次执行命令后的计数，每次完成一次两阶段提交计数值+1)
 		*/
 		synTargetGetCmd := command{cmdType: synTargetGet}
-		if len(RESPArrays[1]) > 0 {
+		if arraySize >= 2 {
 			synTargetGetCmd.value = RESPArrays[1] //cntFlag-->RESPArrays[1]
 		}
 		cmd = synTargetGetCmd
