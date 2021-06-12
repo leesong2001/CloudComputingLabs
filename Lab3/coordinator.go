@@ -151,11 +151,13 @@ func heartBeatsCheck(c chan command, ot chan string) {
 		var cmd command
 		cmd.cmdType = heartBeats
 		info := HeartBeatsResps
-		if len(c) > 0 {
-			cmd = <-c
+		select {
+		case cmd = <-c:
 			info = cmd2RESPArr(cmd)
 			fmt.Println("info=" + info)
+		default:
 		}
+
 		//prepare 第一阶段发包
 		for i, _ := range heartbeatsCnt {
 			if connParticipant[i] == nil {
