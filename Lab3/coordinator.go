@@ -33,10 +33,10 @@ func try_dail(p int) {
 
 /*
 总共4个阶段的恢复
-1. synData IP:PORT 发送给p
-2. 从p接收 synData ACK
-3. 从p接收 synData FIN
-4. synData FIN_ACK 发送给p
+1. synData IP:PORT 发送给to
+2. 从to接收 synData ACK
+3. 从to接收 synData FIN
+4. synData FIN_ACK 发送给to
 */
 func data_recover(to, p int) {
 	cn := connParticipant[to]
