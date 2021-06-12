@@ -39,6 +39,7 @@ func try_dail(p int) {
 4. synData FIN_ACK 发送给to
 */
 func data_recover(to, p int) {
+	alive++
 	cn := connParticipant[to]
 	cmd := command{cmdType: syndata, value: participantIPPortArr[p]}
 	info := cmd2RESPArr(cmd)
@@ -128,7 +129,6 @@ func eraseconn(p int) {
 //一个participant恢复连接，并且完成同步
 func recoverOK(p int) {
 	isalive[p] = true
-	alive++
 }
 
 // c为用户输入，ot为反馈信息
